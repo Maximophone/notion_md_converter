@@ -8,10 +8,33 @@ import argparse
 # Load environment variables from .env file
 load_dotenv()
 
+def clean_rich_text(rich_text_array):
+    """
+    Cleans a rich_text array to only include properties valid for creation.
+    """
+    cleaned_array = []
+    for item in rich_text_array:
+        cleaned_item = {
+            "type": "text",
+            "text": {
+                "content": item.get("text", {}).get("content", ""),
+            }
+        }
+        # Only add link if it exists and is not None
+        if item.get("text", {}).get("link"):
+            cleaned_item["text"]["link"] = item["text"]["link"]
+        
+        # Preserve annotations
+        if "annotations" in item:
+            cleaned_item["annotations"] = item["annotations"]
+
+        cleaned_array.append(cleaned_item)
+    return cleaned_array
+
 def clean_block(block):
     """
     Removes fields from a block object that are not allowed when creating new content.
-    This version correctly handles nested blocks.
+    This version includes a workaround for a Notion API bug with code block line breaks.
     """
     # Fields to remove from the top-level of the block object
     block.pop("id", None)
@@ -23,9 +46,26 @@ def clean_block(block):
     block.pop("has_children", None)
     block.pop("archived", None)
 
-    # The type of the block (e.g., 'paragraph', 'heading_1') contains the content
     block_type = block.get("type")
+
+    # Workaround for Notion API bug where it strips some newlines from code blocks on fetch.
+    # We rebuild the rich_text array from the plain_text content to ensure all newlines are preserved.
+    if block_type == "code" and "rich_text" in block.get("code", {}):
+        plain_text_content = "".join([item.get("plain_text", "") for item in block["code"]["rich_text"]])
+        
+        block["code"]["rich_text"] = [{
+            "type": "text",
+            "text": {
+                "content": plain_text_content
+            }
+        }]
+        return block
+
     if block_type and block_type in block:
+        # Clean the rich_text array within any other block type
+        if "rich_text" in block[block_type]:
+            block[block_type]["rich_text"] = clean_rich_text(block[block_type]["rich_text"])
+
         # If the block type has a 'children' key, recursively clean them.
         # This is the correct way to handle nested blocks (e.g., in toggles, lists).
         if "children" in block[block_type]:
