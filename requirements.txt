@@ -1,2 +1,2 @@
 notion-client
-python-dotenv
+python-dotenvpytest

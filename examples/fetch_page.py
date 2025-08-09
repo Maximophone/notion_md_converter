@@ -1,8 +1,10 @@
 import os
+import sys
 import json
 from dotenv import load_dotenv
 from notion_client import Client, APIResponseError
-from utils import extract_page_id
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from notion_markdown_converter import extract_page_id
 
 # Load environment variables from .env file
 load_dotenv()
