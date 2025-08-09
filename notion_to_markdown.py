@@ -22,10 +22,31 @@ class NotionToMarkdownConverter:
         markdown_lines = []
         
         # Handle page title if present
-        if 'properties' in notion_data and 'title' in notion_data['properties']:
-            title_property = notion_data['properties']['title']
-            if 'title' in title_property and title_property['title']:
-                title_text = self._convert_rich_text(title_property['title'])
+        # Check both old format (properties.title.title) and new format (properties.title)
+        if 'properties' in notion_data:
+            if 'title' in notion_data['properties']:
+                title_property = notion_data['properties']['title']
+                title_text = None
+                
+                # Handle both formats
+                if isinstance(title_property, dict):
+                    if 'title' in title_property and title_property['title']:
+                        # Standard Notion format: properties.title.title is an array
+                        if isinstance(title_property['title'], list):
+                            # Check if it's already rich text format
+                            if title_property['title'] and isinstance(title_property['title'][0], dict) and 'text' in title_property['title'][0]:
+                                # It's our converted format, extract the text
+                                title_text = title_property['title'][0]['text'].get('content', '')
+                            else:
+                                title_text = self._convert_rich_text(title_property['title'])
+                        else:
+                            title_text = self._convert_rich_text(title_property['title'])
+                    elif 'text' in title_property:
+                        # Direct text format from our converter
+                        title_text = title_property['text']['content'] if isinstance(title_property['text'], dict) else title_property['text']
+                elif isinstance(title_property, list):
+                    title_text = self._convert_rich_text(title_property)
+                
                 if title_text:
                     markdown_lines.append(f"# {title_text}")
                     markdown_lines.append("")
