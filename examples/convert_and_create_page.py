@@ -162,11 +162,38 @@ def clean_block(block):
         return block
 
     if block_type and block_type in block:
+        # Column blocks do not accept any properties on create other than nested children
+        if block_type == "column":
+            if not isinstance(block.get("column"), dict):
+                block["column"] = {}
+            # Move any top-level children into column.children after cleaning
+            if isinstance(block.get("children"), list):
+                moved_children = [_clean_and_flatten_child(child) for child in block["children"]]
+                moved_children = _flatten_grouping_blocks(moved_children)
+                block["column"]["children"] = moved_children
+                try:
+                    del block["children"]
+                except Exception:
+                    pass
+        # Column list blocks must define their columns under column_list.children for creation
+        if block_type == "column_list":
+            if not isinstance(block.get("column_list"), dict):
+                block["column_list"] = {}
+            # If top-level children exist, move them under column_list.children after cleaning
+            if isinstance(block.get("children"), list):
+                moved_children = [_clean_and_flatten_child(child) for child in block["children"]]
+                moved_children = _flatten_grouping_blocks(moved_children)
+                block["column_list"]["children"] = moved_children
+                try:
+                    del block["children"]
+                except Exception:
+                    pass
         # Clean the rich_text array within any other block type
         if "rich_text" in block[block_type]:
             block[block_type]["rich_text"] = clean_rich_text(block[block_type]["rich_text"])
         # If recursive fetch stored children under the type key, hoist to top-level
-        if isinstance(block[block_type], dict) and isinstance(block[block_type].get("children"), list):
+        # BUT keep children nested for column_list and column, which require nested children on create
+        if block_type not in ("column_list", "column") and isinstance(block[block_type], dict) and isinstance(block[block_type].get("children"), list):
             hoisted_children = [clean_block(child) for child in block[block_type]["children"]]
             hoisted_children = _flatten_grouping_blocks(hoisted_children)
             # Merge with any existing top-level children
@@ -209,6 +236,13 @@ def create_notion_page(payload, notion_client):
         # Ensure we do not carry nested children in the initial create
         children = []
         if isinstance(block, dict):
+            # Special-case: column_list must include its columns at creation time
+            # and those columns live under column_list.children. Do not strip them.
+            if block.get("type") == "column_list":
+                return block, []
+            # Special-case: column must include its children under column.children at creation time
+            if block.get("type") == "column":
+                return block, []
             # Prefer top-level children
             if isinstance(block.get("children"), list):
                 children = block.get("children", [])
@@ -218,7 +252,7 @@ def create_notion_page(payload, notion_client):
                     pass
             # Also guard against any remaining nested children under type key
             block_type = block.get("type")
-            if block_type and isinstance(block.get(block_type), dict) and isinstance(block[block_type].get("children"), list):
+            if block_type and block_type not in ("column_list", "column") and isinstance(block.get(block_type), dict) and isinstance(block[block_type].get("children"), list):
                 # Hoist then remove
                 children = children or block[block_type].get("children", [])
                 try:
