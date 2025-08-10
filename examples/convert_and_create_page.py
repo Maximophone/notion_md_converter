@@ -13,25 +13,94 @@ load_dotenv()
 def clean_rich_text(rich_text_array):
     """
     Cleans a rich_text array to only include properties valid for creation.
+    Preserves mentions (e.g., user mentions) with the minimal allowed shape.
     """
     cleaned_array = []
-    for item in rich_text_array:
+
+    def _clean_rich_text_item(item):
+        item_type = item.get("type")
+        annotations = item.get("annotations")
+
+        if item_type == "text":
+            cleaned_item = {
+                "type": "text",
+                "text": {
+                    "content": item.get("text", {}).get("content", ""),
+                },
+            }
+            # Only add link if it exists and is not None
+            link_value = item.get("text", {}).get("link")
+            if link_value:
+                cleaned_item["text"]["link"] = link_value
+            if annotations:
+                cleaned_item["annotations"] = annotations
+            return cleaned_item
+
+        if item_type == "mention":
+            mention = item.get("mention", {})
+            mention_type = mention.get("type")
+            cleaned_mention = {"type": mention_type} if mention_type else {}
+
+            if mention_type == "user":
+                user_id = (
+                    mention.get("user", {}).get("id")
+                    if isinstance(mention.get("user"), dict)
+                    else None
+                )
+                if user_id:
+                    cleaned_mention["user"] = {"id": user_id}
+            elif mention_type == "page":
+                page_id = (
+                    mention.get("page", {}).get("id")
+                    if isinstance(mention.get("page"), dict)
+                    else None
+                )
+                if page_id:
+                    cleaned_mention["page"] = {"id": page_id}
+            elif mention_type == "database":
+                database_id = (
+                    mention.get("database", {}).get("id")
+                    if isinstance(mention.get("database"), dict)
+                    else None
+                )
+                if database_id:
+                    cleaned_mention["database"] = {"id": database_id}
+            elif mention_type == "date":
+                # Date mention can be preserved as-is
+                if isinstance(mention.get("date"), dict):
+                    cleaned_mention["date"] = mention["date"]
+
+            cleaned_item = {"type": "mention", "mention": cleaned_mention}
+            if annotations:
+                cleaned_item["annotations"] = annotations
+            return cleaned_item
+
+        if item_type == "equation":
+            expr = item.get("equation", {}).get("expression", "")
+            cleaned_item = {"type": "equation", "equation": {"expression": expr}}
+            if annotations:
+                cleaned_item["annotations"] = annotations
+            return cleaned_item
+
+        # Fallback: coerce to text if possible
+        fallback_text = item.get("plain_text") or item.get("text", {}).get("content", "")
         cleaned_item = {
             "type": "text",
-            "text": {
-                "content": item.get("text", {}).get("content", ""),
-            }
+            "text": {"content": fallback_text or ""},
         }
-        # Only add link if it exists and is not None
-        if item.get("text", {}).get("link"):
-            cleaned_item["text"]["link"] = item["text"]["link"]
-        
-        # Preserve annotations
-        if "annotations" in item:
-            cleaned_item["annotations"] = item["annotations"]
+        if annotations:
+            cleaned_item["annotations"] = annotations
+        return cleaned_item
 
+    for item in rich_text_array or []:
+        cleaned_item = _clean_rich_text_item(item)
+        # Drop truly empty text nodes to avoid unexpected API errors
+        if cleaned_item.get("type") == "text" and not cleaned_item.get("text", {}).get("content") and not cleaned_item.get("text", {}).get("link"):
+            continue
         cleaned_array.append(cleaned_item)
+
     return cleaned_array
+
 
 def _flatten_grouping_blocks(children):
     """
@@ -57,6 +126,7 @@ def _flatten_grouping_blocks(children):
             flattened.append(child)
     return flattened
 
+
 def clean_block(block):
     """
     Removes fields from a block object that are not allowed when creating new content.
@@ -80,7 +150,7 @@ def clean_block(block):
     # We rebuild the rich_text array from the plain_text content to ensure all newlines are preserved.
     if block_type == "code" and "rich_text" in block.get("code", {}):
         plain_text_content = "".join([item.get("plain_text", "") for item in block["code"]["rich_text"]])
-        
+
         block["code"]["rich_text"] = [{
             "type": "text",
             "text": {"content": plain_text_content}
@@ -93,7 +163,7 @@ def clean_block(block):
 
     if block_type and block_type in block:
         # Clean the rich_text array within any other block type
-       	if "rich_text" in block[block_type]:
+        if "rich_text" in block[block_type]:
             block[block_type]["rich_text"] = clean_rich_text(block[block_type]["rich_text"])
         # If recursive fetch stored children under the type key, hoist to top-level
         if isinstance(block[block_type], dict) and isinstance(block[block_type].get("children"), list):
@@ -115,6 +185,7 @@ def clean_block(block):
 
     return block
 
+
 def _clean_and_flatten_child(child):
     """
     Helper to clean a child block and flatten grouping wrappers inside the child recursively.
@@ -123,6 +194,7 @@ def _clean_and_flatten_child(child):
     if isinstance(cleaned, dict) and "children" in cleaned:
         cleaned["children"] = _flatten_grouping_blocks(cleaned["children"])
     return cleaned
+
 
 def create_notion_page(payload, notion_client):
     """
@@ -182,6 +254,12 @@ def create_notion_page(payload, notion_client):
                         _append_children_recursive(created_block["id"], nested_children)
             except APIResponseError as e:
                 print(f"Error appending children to block {parent_block_id}: {e}")
+                # Print server-provided body for diagnostics when available
+                try:
+                    if hasattr(e, "body") and e.body:
+                        print(json.dumps(e.body, indent=2))
+                except Exception:
+                    pass
                 raise
 
     # Prepare top-level blocks for the initial page create
@@ -232,7 +310,14 @@ def create_notion_page(payload, notion_client):
         return response
     except APIResponseError as e:
         print(f"Error creating Notion page: {e}")
+        # Print server-provided body for diagnostics when available
+        try:
+            if hasattr(e, "body") and e.body:
+                print(json.dumps(e.body, indent=2))
+        except Exception:
+            pass
         return None
+
 
 def main():
     """
