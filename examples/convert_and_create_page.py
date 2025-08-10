@@ -47,8 +47,13 @@ def clean_rich_text(rich_text_array):
                     if isinstance(mention.get("user"), dict)
                     else None
                 )
+                user_name = (
+                    mention.get("user", {}).get("name")
+                    if isinstance(mention.get("user"), dict)
+                    else None
+                )
                 if user_id:
-                    cleaned_mention["user"] = {"id": user_id}
+                    cleaned_mention["user"] = {"id": user_id, "_name": user_name}
             elif mention_type == "page":
                 page_id = (
                     mention.get("page", {}).get("id")
@@ -231,6 +236,22 @@ def create_notion_page(payload, notion_client):
     the corresponding parent blocks are created.
     """
     original_children = payload.pop("children", [])
+
+    def _remove_underscore_keys(obj):
+        """
+        Recursively remove all keys starting with underscore from dictionaries in obj.
+        """
+        if isinstance(obj, dict):
+            # Create a new dict without underscore keys
+            cleaned = {k: _remove_underscore_keys(v) for k, v in obj.items() if not k.startswith("_")}
+            return cleaned
+        elif isinstance(obj, list):
+            return [_remove_underscore_keys(item) for item in obj]
+        else:
+            return obj
+
+    # Remove all underscore-prefixed fields from the payload before sending to Notion
+    original_children = _remove_underscore_keys(original_children)
 
     def _split_block_and_children(block):
         # Ensure we do not carry nested children in the initial create
