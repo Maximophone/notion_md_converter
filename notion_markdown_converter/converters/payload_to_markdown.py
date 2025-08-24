@@ -53,15 +53,12 @@ class NotionPayloadToMarkdownConverter:
         
         # Process children blocks
         if 'children' in notion_data:
-            markdown_lines.extend(self._process_blocks(notion_data['children']))
-            
-        # Clean up any trailing empty lines
-        while markdown_lines and markdown_lines[-1] == "":
-            markdown_lines.pop()
+            # Preserve trailing empty lines at the end of the page if present in payload
+            markdown_lines.extend(self._process_blocks(notion_data['children'], trim_trailing=False))
             
         return "\n".join(markdown_lines)
     
-    def _process_blocks(self, blocks: List[Dict[str, Any]], indent_level: int = 0) -> List[str]:
+    def _process_blocks(self, blocks: List[Dict[str, Any]], indent_level: int = 0, trim_trailing: bool = True) -> List[str]:
         """Process a list of blocks and convert them to Markdown lines."""
         lines = []
         prev_block_type = None
@@ -93,7 +90,8 @@ class NotionPayloadToMarkdownConverter:
                     if column.get('type') == 'column':
                         lines.append("<notion-column>")
                         column_children = column.get('column', {}).get('children', [])
-                        column_lines = self._process_blocks(column_children, indent_level)
+                        # Trim trailing empties inside column content to avoid extra blank lines before closing tag
+                        column_lines = self._process_blocks(column_children, indent_level, trim_trailing=True)
                         lines.extend(column_lines)
                         lines.append("</notion-column>")
                         
@@ -133,9 +131,11 @@ class NotionPayloadToMarkdownConverter:
             lines.extend(block_lines)
             prev_block_type = block_type
             
-        # Trim trailing empty lines within this group
-        while lines and lines[-1] == "":
-            lines.pop()
+        # Do not trim trailing empty lines; they may represent explicit empty paragraph blocks
+        # Trim trailing empty lines within this group unless instructed otherwise
+        if trim_trailing:
+            while lines and lines[-1] == "":
+                lines.pop()
         return lines
     
     def _is_list_continuation(self, prev_type: Optional[str], curr_type: str) -> bool:
