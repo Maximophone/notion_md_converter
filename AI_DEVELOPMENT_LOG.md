@@ -501,3 +501,28 @@ This refactoring establishes the foundation for a robust, extensible Notion↔Ma
 - Improve table alignment heuristics (we’re matching references; consider configurable alignment strategies if more datasets appear).
 - Expand test corpus for complex nesting (mixed toggles inside lists, list blocks in columns, etc.).
 - Consider normalizing smart quotes behavior explicitly if more references require it.
+
+---
+
+# 2025-08-24 - Properties Front Matter, Title Policy, API Fetch Fixes, References Synced
+
+## Summary
+- Added front matter support for Notion page properties in both directions.
+- Removed legacy rule that treated the first H1 as the page title; titles now come only from front matter.
+- Implemented YAML front matter schema using `ntn:<type>:<Name>` keys (e.g., "ntn:title:Name", "ntn:url:URL", "ntn:multi_select:Tags", "ntn:files:Files", "ntn:date:Date", "ntn:people:Assignees", "ntn:select:Status", "ntn:status:Status", "ntn:email:Email", "ntn:checkbox:Published", "ntn:number:Estimate", "ntn:phone_number:Phone").
+- Fixed API block fetching recursion to correctly populate nested children (lists, toggles, columns) without mis-hoisting. This ensured API exports match Notion page structure.
+- Regenerated references to include titles in front matter; reconciled mismatches.
+
+## Code Changes
+- `payload_to_markdown.py`: emits YAML front matter for all properties (including title) and then renders blocks; no extra blank line after front matter.
+- `markdown_to_payload.py`: parses YAML front matter into `properties`; H1 remains a heading block (no implicit title extraction). Front matter parsing is guarded to avoid interpreting lone `---` as front matter.
+- `api.py`: rewrote block fetching to recursively fetch each block’s direct children via a clean helper, preventing structure drift.
+- `scripts/upload_page.py`: generalized uploader supporting markdown, payload JSON, and API JSON; supports page or database parent IDs/URLs.
+
+## Tests
+- Updated references to include title in front matter. All tests pass after syncing reference_3 API/payload with the Notion page content and column children.
+- Main suite green; legacy suite expectations about H1→title are no longer applicable by design.
+
+## Notes
+- Front matter is now the single source of truth for page properties and title.
+- API exports are page-shaped (via pages.retrieve) with `children` populated recursively.

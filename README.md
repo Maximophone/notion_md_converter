@@ -130,6 +130,37 @@ Date: <notion-date>August 10, 2025</notion-date>
 Inline math: $E = mc^2$
 ```
 
+### Front Matter for Properties
+Pages can include Notion properties via YAML front matter at the top of the markdown using typed keys:
+
+```yaml
+---
+"ntn:title:Name": "My Page Title"
+"ntn:url:URL": "https://example.com"
+"ntn:multi_select:Tags":
+  - "Tag A"
+  - "Tag B"
+"ntn:files:Files":
+  - "https://example.com/image.png"
+"ntn:date:Date":
+  start: "2025-08-24"
+  end: null
+  time_zone: null
+"ntn:people:Assignees":
+  - "user-id-1"
+"ntn:select:Status": "In progress"
+"ntn:status:Status": "In progress"
+"ntn:email:Email": "test@example.com"
+"ntn:checkbox:Published": true
+"ntn:number:Estimate": 5
+"ntn:phone_number:Phone": "+123456789"
+---
+```
+
+Notes:
+- The first H1 in the document is no longer treated as title; the title comes exclusively from front matter.
+- Only explicit empty paragraphs in Notion map to blank lines in markdown.
+
 ### Multi-column Layout
 ```markdown
 <notion-columns>
@@ -273,8 +304,10 @@ with open('exported_page.md', 'w', encoding='utf-8') as f:
 # Fetch a page from Notion
 python scripts/fetch_page.py
 
-# Upload a local markdown file to Notion under a parent page
-python scripts/upload_markdown.py path/to/file.md "https://www.notion.so/Parent-Page-URL" --title "Optional Title"
+# Upload from markdown, payload JSON, or API JSON under a page or database
+python scripts/upload_page.py path/to/file.md "https://www.notion.so/Parent-Page-URL" --type markdown --title "Optional Title"
+python scripts/upload_page.py path/to/payload.json "https://www.notion.so/Parent-Database-URL" --type payload --parent-type database
+python scripts/upload_page.py path/to/api.json "https://www.notion.so/Parent-Page-URL" --type api --title "Optional Title"
 ```
 
 ## Architecture
