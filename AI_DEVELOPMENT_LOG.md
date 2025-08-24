@@ -1,4 +1,12 @@
-# Notion Markdown Converter Development Log
+# Notion Markdown Converter AI Development Log
+
+# HOW TO USE
+- /!\ ONLY EVER APPEND TO THIS FILE
+- At the end of the session, add a header with the current date. Under this header, explain everything you have achieved, the problems encountered, etc. Add anything that you think will be useful for your next session. 
+- When reading this file, PAY CAREFUL ATTENTION TO THE DATES. Older information may be outdated.
+- This is your own log and you manage it as you see fit. But make sure to also pay attention to DEV_LOG.md, which is the human developers' log. Also pay attention to the dates.
+
+# 2025-08-10
 
 ## Project Overview
 
