@@ -43,13 +43,9 @@ class NotionApiToPayloadConverter:
             "children": []
         }
         
-        # Extract title if present
-        if 'properties' in api_response and 'title' in api_response['properties']:
-            title_property = api_response['properties']['title']
-            if isinstance(title_property, dict) and 'title' in title_property:
-                # Clean the title rich text
-                cleaned_title = self._clean_rich_text(title_property['title'])
-                payload["properties"]["title"] = {"title": cleaned_title}
+        # Preserve/clean properties if present on the page object
+        if isinstance(api_response.get('properties'), dict):
+            payload["properties"] = self._clean_properties(api_response["properties"]) or {}
         
         # Process children blocks
         if 'children' in api_response:
@@ -154,6 +150,115 @@ class NotionApiToPayloadConverter:
 
         return cleaned_array
     
+    def _clean_properties(self, properties: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Clean Notion page/database properties from an API response into a payload-ready shape.
+        Only preserves values using the minimal structure accepted by the Notion create/update API.
+        """
+        cleaned: Dict[str, Any] = {}
+
+        for prop_name, prop in (properties or {}).items():
+            if not isinstance(prop, dict):
+                continue
+            prop_type = prop.get("type")
+
+            # Title (Name) property
+            if prop_type == "title":
+                cleaned[prop_name] = {
+                    "title": self._clean_rich_text(prop.get("title", []))
+                }
+                continue
+
+            # Rich text
+            if prop_type == "rich_text":
+                cleaned[prop_name] = {
+                    "rich_text": self._clean_rich_text(prop.get("rich_text", []))
+                }
+                continue
+
+            # Plain scalar properties
+            if prop_type == "number":
+                cleaned[prop_name] = {"number": prop.get("number")}
+                continue
+            if prop_type == "url":
+                cleaned[prop_name] = {"url": prop.get("url")}
+                continue
+            if prop_type == "email":
+                cleaned[prop_name] = {"email": prop.get("email")}
+                continue
+            if prop_type == "phone_number":
+                cleaned[prop_name] = {"phone_number": prop.get("phone_number")}
+                continue
+            if prop_type == "checkbox":
+                cleaned[prop_name] = {"checkbox": prop.get("checkbox", False)}
+                continue
+
+            # Select-like
+            if prop_type == "select":
+                select = prop.get("select") or {}
+                name = select.get("name")
+                cleaned[prop_name] = {"select": ({"name": name} if name else None)}
+                continue
+            if prop_type == "multi_select":
+                options = prop.get("multi_select") or []
+                cleaned[prop_name] = {
+                    "multi_select": [{"name": o.get("name")} for o in options if isinstance(o, dict) and o.get("name")]
+                }
+                continue
+            if prop_type == "status":
+                status = prop.get("status") or {}
+                name = status.get("name")
+                cleaned[prop_name] = {"status": ({"name": name} if name else None)}
+                continue
+
+            # People
+            if prop_type == "people":
+                people = prop.get("people") or []
+                cleaned[prop_name] = {
+                    "people": [{"id": p.get("id")} for p in people if isinstance(p, dict) and p.get("id")]
+                }
+                continue
+
+            # Date
+            if prop_type == "date":
+                date_val = prop.get("date") or {}
+                cleaned[prop_name] = {
+                    "date": {
+                        k: date_val.get(k) for k in ("start", "end", "time_zone") if k in date_val
+                    }
+                }
+                continue
+
+            # Files - map to externals where possible to avoid ephemeral file upload constraints
+            if prop_type == "files":
+                files = prop.get("files") or []
+                cleaned_files = []
+                for f in files:
+                    if not isinstance(f, dict):
+                        continue
+                    name = f.get("name")
+                    if f.get("type") == "external" and isinstance(f.get("external"), dict) and f["external"].get("url"):
+                        cleaned_files.append({
+                            "name": name or "file",
+                            "type": "external",
+                            "external": {"url": f["external"]["url"]}
+                        })
+                    elif f.get("type") == "file" and isinstance(f.get("file"), dict) and f["file"].get("url"):
+                        # Convert file to external to avoid expired signed URLs at creation time
+                        cleaned_files.append({
+                            "name": name or "file",
+                            "type": "external",
+                            "external": {"url": f["file"]["url"]}
+                        })
+                cleaned[prop_name] = {"files": cleaned_files}
+                continue
+
+            # Fallback: skip unsupported property types to avoid API errors on creation
+            # Future: preserve under front matter in Markdown, but not in payload properties
+            # cleaned[prop_name] = {"_unsupported": {"type": prop_type}}
+
+        return cleaned
+
     def _flatten_grouping_blocks(self, children: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
         """
         Flattens grouping-only wrapper blocks (e.g., bulleted_list, numbered_list)
