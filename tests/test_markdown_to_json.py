@@ -4,10 +4,8 @@ import sys
 import os
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from notion_markdown_converter import (
-    MarkdownToNotionConverter, 
-    markdown_to_json,
-    NotionToMarkdownConverter, 
-    json_to_markdown
+    NotionPayloadToMarkdownConverter,
+    NotionMarkdownToPayloadConverter,
 )
 import tempfile
 
@@ -17,7 +15,7 @@ class TestMarkdownToNotionConverter:
     
     def test_simple_paragraph(self):
         """Test conversion of a simple paragraph."""
-        converter = MarkdownToNotionConverter()
+        converter = NotionMarkdownToPayloadConverter()
         markdown = "This is a simple paragraph."
         result = converter.convert_markdown(markdown)
         
@@ -27,7 +25,7 @@ class TestMarkdownToNotionConverter:
     
     def test_headings(self):
         """Test conversion of different heading levels."""
-        converter = MarkdownToNotionConverter()
+        converter = NotionMarkdownToPayloadConverter()
         markdown = """# Heading 1
 ## Heading 2
 ### Heading 3"""
@@ -46,7 +44,7 @@ class TestMarkdownToNotionConverter:
     
     def test_bold_italic_formatting(self):
         """Test bold and italic text formatting."""
-        converter = MarkdownToNotionConverter()
+        converter = NotionMarkdownToPayloadConverter()
         markdown = "This has **bold**, *italic*, and ***bold italic*** text."
         
         result = converter.convert_markdown(markdown)
@@ -81,7 +79,7 @@ class TestMarkdownToNotionConverter:
     
     def test_code_formatting(self):
         """Test inline code and code blocks."""
-        converter = MarkdownToNotionConverter()
+        converter = NotionMarkdownToPayloadConverter()
         
         # Test inline code
         markdown = "This has `inline code` in it."
@@ -109,7 +107,7 @@ def hello():
     
     def test_lists(self):
         """Test different list types."""
-        converter = MarkdownToNotionConverter()
+        converter = NotionMarkdownToPayloadConverter()
         
         # Test bulleted list
         markdown = """- Item 1
@@ -148,7 +146,7 @@ def hello():
     
     def test_nested_lists(self):
         """Test nested list structures."""
-        converter = MarkdownToNotionConverter()
+        converter = NotionMarkdownToPayloadConverter()
         markdown = """- Item 1
   - Sub-item 1.1
   - Sub-item 1.2
@@ -167,7 +165,7 @@ def hello():
     
     def test_quote_block(self):
         """Test quote block conversion."""
-        converter = MarkdownToNotionConverter()
+        converter = NotionMarkdownToPayloadConverter()
         markdown = "> This is a quote"
         
         result = converter.convert_markdown(markdown)
@@ -177,7 +175,7 @@ def hello():
     
     def test_horizontal_rule(self):
         """Test horizontal rule conversion."""
-        converter = MarkdownToNotionConverter()
+        converter = NotionMarkdownToPayloadConverter()
         markdown = "---"
         
         result = converter.convert_markdown(markdown)
@@ -186,7 +184,7 @@ def hello():
     
     def test_links(self):
         """Test link conversion."""
-        converter = MarkdownToNotionConverter()
+        converter = NotionMarkdownToPayloadConverter()
         markdown = "This is a [link to Google](https://www.google.com)."
         
         result = converter.convert_markdown(markdown)
@@ -203,7 +201,7 @@ def hello():
     
     def test_table(self):
         """Test table conversion."""
-        converter = MarkdownToNotionConverter()
+        converter = NotionMarkdownToPayloadConverter()
         markdown = """| Header 1 | Header 2 |
 | -------- | -------- |
 | Cell 1   | Cell 2   |
@@ -226,7 +224,7 @@ def hello():
     
     def test_strikethrough_and_underline(self):
         """Test strikethrough and underline formatting."""
-        converter = MarkdownToNotionConverter()
+        converter = NotionMarkdownToPayloadConverter()
         markdown = "This has ~~strikethrough~~ and <u>underline</u> text."
         
         result = converter.convert_markdown(markdown)
@@ -281,11 +279,11 @@ def test():
 | Data 1   | Data 2   |"""
         
         # Convert to JSON
-        md_to_json_converter = MarkdownToNotionConverter()
+        md_to_json_converter = NotionMarkdownToPayloadConverter()
         json_data = md_to_json_converter.convert_markdown(original_markdown)
         
         # Convert back to Markdown
-        json_to_md_converter = NotionToMarkdownConverter()
+        json_to_md_converter = NotionPayloadToMarkdownConverter()
         result_markdown = json_to_md_converter.convert_page(json_data)
         
         # The result should contain all the main elements
@@ -307,7 +305,7 @@ def test():
     def test_with_reference_file(self):
         """Test conversion with the reference markdown file."""
         # First, convert the reference JSON to Markdown
-        json_to_md_converter = NotionToMarkdownConverter()
+        json_to_md_converter = NotionPayloadToMarkdownConverter()
         
         # Read the reference JSON
         with open('references/reference_1_payload.json', 'r', encoding='utf-8') as f:
@@ -315,9 +313,16 @@ def test():
         
         # Convert to Markdown
         markdown_from_json = json_to_md_converter.convert_page(original_json)
+
+        # Read the reference markdown
+        with open('references/reference_1.md', 'r', encoding='utf-8') as f:
+            original_markdown = f.read()
+
+        # Compare the markdown from the JSON with the original markdown
+        assert markdown_from_json == original_markdown
         
         # Now convert that Markdown back to JSON
-        md_to_json_converter = MarkdownToNotionConverter()
+        md_to_json_converter = NotionMarkdownToPayloadConverter()
         result_json = md_to_json_converter.convert_markdown(markdown_from_json)
         
         # Verify the structure is similar

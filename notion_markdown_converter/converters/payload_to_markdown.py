@@ -65,6 +65,7 @@ class NotionPayloadToMarkdownConverter:
         """Process a list of blocks and convert them to Markdown lines."""
         lines = []
         prev_block_type = None
+        in_column_list = False
         
         for i, block in enumerate(blocks):
             block_type = block.get('type', '')
@@ -78,7 +79,54 @@ class NotionPayloadToMarkdownConverter:
                     self.numbered_list_counter = 0
                     self.in_numbered_list = True
             
-            # Convert the block
+            # Handle special column list processing
+            if block_type == 'column_list':
+                in_column_list = True
+                lines.extend(self._convert_block(block, indent_level))
+                
+                # Process column children
+                column_data = block.get('column_list', {})
+                columns = column_data.get('children', [])
+                
+                for column in columns:
+                    if column.get('type') == 'column':
+                        lines.append("<notion-column>")
+                        column_children = column.get('column', {}).get('children', [])
+                        column_lines = self._process_blocks(column_children, indent_level)
+                        lines.extend(column_lines)
+                        lines.append("</notion-column>")
+                        
+                lines.append("</notion-columns>")
+                in_column_list = False
+                prev_block_type = block_type
+                continue
+                
+            # Handle callout block with special formatting
+            if block_type == 'callout':
+                callout_data = block.get('callout', {})
+                text = self._get_block_text(block, 'callout')
+                
+                # Get the icon
+                icon_data = callout_data.get('icon', {})
+                icon = ""
+                if icon_data.get('type') == 'emoji':
+                    icon = icon_data.get('emoji', '')
+                
+                lines.append(f"<aside>")
+                if text:
+                    lines.append(f"{icon} {text}")
+                
+                # Process callout children
+                children = block.get('children', [])
+                if children:
+                    child_lines = self._process_blocks(children, indent_level)
+                    lines.extend(child_lines)
+                    
+                lines.append("</aside>")
+                prev_block_type = block_type
+                continue
+            
+            # Convert the block normally
             block_lines = self._convert_block(block, indent_level)
             
             # Add spacing between different block types (but not between list items or before dividers)
@@ -101,7 +149,7 @@ class NotionPayloadToMarkdownConverter:
     def _convert_block(self, block: Dict[str, Any], indent_level: int = 0) -> List[str]:
         """Convert a single block to Markdown lines."""
         block_type = block.get('type', '')
-        indent = "  " * indent_level
+        indent = "    " * indent_level
         
         # Map block types to converter methods
         converters = {
@@ -116,6 +164,10 @@ class NotionPayloadToMarkdownConverter:
             'divider': self._convert_divider,
             'code': self._convert_code,
             'table': self._convert_table,
+            'toggle': self._convert_toggle,
+            'callout': self._convert_callout,
+            'link_to_page': self._convert_link_to_page,
+            'column_list': self._convert_column_list,
         }
         
         converter = converters.get(block_type)
@@ -143,27 +195,44 @@ class NotionPayloadToMarkdownConverter:
         text = self._get_block_text(block, 'paragraph')
         if text:
             return [f"{indent}{text}"]
-        return []
+        else:
+            # Empty paragraph becomes empty line
+            return [""]
     
     def _convert_heading_1(self, block: Dict[str, Any], indent: str) -> List[str]:
         """Convert a heading 1 block."""
         text = self._get_block_text(block, 'heading_1')
         if text:
-            return [f"{indent}# {text}"]
+            # Check if this is a toggle header
+            heading_data = block.get('heading_1', {})
+            if heading_data.get('is_toggleable', False):
+                return [f"{indent}# [>] {text}"]
+            else:
+                return [f"{indent}# {text}"]
         return []
     
     def _convert_heading_2(self, block: Dict[str, Any], indent: str) -> List[str]:
         """Convert a heading 2 block."""
         text = self._get_block_text(block, 'heading_2')
         if text:
-            return [f"{indent}## {text}"]
+            # Check if this is a toggle header
+            heading_data = block.get('heading_2', {})
+            if heading_data.get('is_toggleable', False):
+                return [f"{indent}## [>] {text}"]
+            else:
+                return [f"{indent}## {text}"]
         return []
     
     def _convert_heading_3(self, block: Dict[str, Any], indent: str) -> List[str]:
         """Convert a heading 3 block."""
         text = self._get_block_text(block, 'heading_3')
         if text:
-            return [f"{indent}### {text}"]
+            # Check if this is a toggle header
+            heading_data = block.get('heading_3', {})
+            if heading_data.get('is_toggleable', False):
+                return [f"{indent}### [>] {text}"]
+            else:
+                return [f"{indent}### {text}"]
         return []
     
     def _convert_bulleted_list(self, block: Dict[str, Any], indent: str) -> List[str]:
@@ -182,8 +251,8 @@ class NotionPayloadToMarkdownConverter:
             # Only modify if we have indentation (meaning it's nested)
             list_indent = indent
             if indent:
-                # Count indent level (each level is 2 spaces)
-                indent_level = len(indent) // 2
+                # Count indent level (each level is 4 spaces)
+                indent_level = len(indent) // 4
                 # For numbered lists, use 3 spaces per level
                 list_indent = "   " * indent_level
             return [f"{list_indent}{self.numbered_list_counter}. {text}"]
@@ -268,6 +337,40 @@ class NotionPayloadToMarkdownConverter:
         
         return lines
     
+    def _convert_toggle(self, block: Dict[str, Any], indent: str) -> List[str]:
+        """Convert a toggle block."""
+        text = self._get_block_text(block, 'toggle')
+        if text:
+            return [f"{indent}- [>] {text}"]
+        return []
+    
+    def _convert_callout(self, block: Dict[str, Any], indent: str) -> List[str]:
+        """Convert a callout block."""
+        text = self._get_block_text(block, 'callout')
+        callout_data = block.get('callout', {})
+        
+        # Get the icon
+        icon_data = callout_data.get('icon', {})
+        icon = ""
+        if icon_data.get('type') == 'emoji':
+            icon = icon_data.get('emoji', '')
+        
+        if text:
+            return [f"{indent}<aside>"]
+        return []
+    
+    def _convert_link_to_page(self, block: Dict[str, Any], indent: str) -> List[str]:
+        """Convert a link to page block."""
+        link_data = block.get('link_to_page', {})
+        if link_data.get('type') == 'page_id':
+            page_id = link_data.get('page_id', '')
+            return [f"{indent}<notion-page id=\"{page_id}\"></notion-page>"]
+        return []
+    
+    def _convert_column_list(self, block: Dict[str, Any], indent: str) -> List[str]:
+        """Convert a column list block."""
+        return [f"{indent}<notion-columns>"]
+    
     def _get_block_text(self, block: Dict[str, Any], block_type: str) -> str:
         """Extract text from a block's rich_text field."""
         block_data = block.get(block_type, {})
@@ -282,7 +385,9 @@ class NotionPayloadToMarkdownConverter:
         result = []
         
         for text_obj in rich_text:
-            if text_obj.get('type') == 'text':
+            text_type = text_obj.get('type')
+            
+            if text_type == 'text':
                 text_data = text_obj.get('text', {})
                 content = text_data.get('content', '')
                 link = text_data.get('link')
@@ -313,6 +418,43 @@ class NotionPayloadToMarkdownConverter:
                     content = f"[{content}]({link['url']})"
                 
                 result.append(content)
+                
+            elif text_type == 'equation':
+                equation_data = text_obj.get('equation', {})
+                expression = equation_data.get('expression', '')
+                result.append(f"${expression}$")
+                
+            elif text_type == 'mention':
+                mention_data = text_obj.get('mention', {})
+                mention_type = mention_data.get('type')
+                
+                if mention_type == 'user':
+                    user_data = mention_data.get('user', {})
+                    user_id = user_data.get('id', '')
+                    user_name = user_data.get('_name', 'User')
+                    result.append(f'<notion-user id="{user_id}">@{user_name}</notion-user>')
+                    
+                elif mention_type == 'page':
+                    page_data = mention_data.get('page', {})
+                    page_id = page_data.get('id', '')
+                    result.append(f'<notion-page id="{page_id}"></notion-page>')
+                    
+                elif mention_type == 'date':
+                    date_data = mention_data.get('date', {})
+                    start_date = date_data.get('start', '')
+                    if start_date:
+                        # Convert from ISO format to readable format
+                        try:
+                            from datetime import datetime
+                            dt = datetime.fromisoformat(start_date)
+                            formatted_date = dt.strftime('%B %d, %Y')
+                            result.append(f'<notion-date>{formatted_date}</notion-date>')
+                        except:
+                            result.append(f'<notion-date>{start_date}</notion-date>')
+            else:
+                # Handle other text types by falling back to text content if available
+                if 'text' in text_obj:
+                    result.append(text_obj['text'].get('content', ''))
                 
         return ''.join(result)
 

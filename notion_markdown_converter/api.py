@@ -9,9 +9,11 @@ import os
 import json
 from typing import Dict, List, Any, Optional
 from notion_client import Client, APIResponseError
+from dotenv import load_dotenv
 
 from .converters import api_to_payload
 
+load_dotenv()
 
 def create_notion_client(token: Optional[str] = None) -> Client:
     """

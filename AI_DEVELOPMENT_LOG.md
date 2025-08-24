@@ -269,3 +269,177 @@ Both converters are complete and fully tested with 29 total passing tests. The i
 - Full bidirectional conversion support
 
 The project is ready for production use and can be easily extended to support additional Notion block types or Markdown extensions.
+
+---
+
+# 2025-08-24 - Major Refactoring and Extended Syntax Implementation
+
+## Session Overview
+- **Duration**: 1h 9m (API: 32m 48s)
+- **Cost**: $21.12
+- **Code Changes**: 2,019 lines added, 126 lines removed
+- **Primary Goal**: Implement the three core stable functions specified in DEV_LOG.md
+
+## Major Accomplishments
+
+### 1. Core Architecture Refactoring ✅
+Successfully implemented the three core conversion functions as specified:
+- `NotionApiResponse → NotionPayload` (api_to_payload)
+- `NotionPayload ⟷ MarkdownContent` (payload_to_markdown, markdown_to_payload)
+- Created new module structure: `converters/`, `plugins/`, `scripts/`
+
+### 2. Extended Syntax Support Implementation ✅
+Added comprehensive support for Notion-specific elements in markdown:
+- **Toggle blocks**: `- [>] toggle content`
+- **Toggle headers**: `### [>] header content` with `is_toggleable: true`
+- **Callouts**: `<aside>💡 content</aside>` → callout blocks with emoji icons
+- **User mentions**: `<notion-user id="...">@username</notion-user>`
+- **Page mentions**: `<notion-page id="..."></notion-page>` → link_to_page blocks
+- **Date mentions**: `<notion-date>August 10, 2025</notion-date>` with ISO conversion
+- **Equations**: `$E = mc^2$` → equation rich text elements
+- **Column layouts**: `<notion-columns><notion-column>content</notion-column></notion-columns>`
+
+### 3. Testing Infrastructure ✅
+- Created auto-discovering test suite in `tests/test_converters.py`
+- Tests dynamically find all reference files and test all conversion types
+- Comprehensive coverage of API→Payload→Markdown→Payload roundtrips
+
+### 4. API Integration ✅
+- New minimalistic Notion API wrapper in `notion_markdown_converter/api.py`
+- Handles pagination, 100-block limits, recursive block fetching
+- Functions: `fetch_page_as_payload()`, `create_page_from_payload()`, etc.
+
+### 5. Reference File Structure ✅
+- Renamed files to new convention: `reference_X_api.json`, `reference_X_payload.json`, `reference_X.md`
+- Cleaned payload files to remove API-specific fields (id, timestamps, etc.)
+- Established payload files as permanent reference points
+
+## Technical Discoveries
+
+### Extended Syntax Was Missing
+The original converters treated extended syntax as literal text (e.g., `- [>]` became regular bulleted_list_item). Investigation revealed:
+- Original markdown files contained extended syntax for Notion elements
+- Converters lacked parsing for toggle syntax, callouts, mentions, columns
+- This functionality needed to be built from scratch, not restored
+
+### Reference File Consistency Issues
+- Some reference files had inconsistencies (titles, URLs with/without trailing slashes)
+- Fixed by ensuring payload and markdown references match exactly
+- User correctly pointed out title removal was wrong - restored and fixed payload instead
+
+## Current System State
+
+### Working ✅
+- API to Payload conversion (cleaning API responses)
+- Extended syntax parsing in both directions
+- Basic conversion functionality for all block types
+- Toggle blocks, callouts, mentions, equations, columns
+- Auto-discovering test infrastructure
+
+### Needs Refinement ⚠️
+- Character encoding mismatches (smart quotes `'` vs regular `'`)
+- Spacing/empty line handling inconsistencies
+- Block count discrepancies in markdown-to-payload conversion
+- Full round-trip idempotency (10/14 tests failing)
+
+## Test Results
+```
+4 PASSED (API to Payload conversions)
+10 FAILED (Payload↔Markdown conversions and roundtrips)
+```
+
+## Remaining Tasks
+From today's work, identified for future sessions:
+1. Fix character encoding inconsistencies (smart quotes → regular quotes)
+2. Resolve markdown-to-payload block count mismatches  
+3. Perfect spacing/empty line handling
+4. Ensure full round-trip idempotency
+5. Clean up examples folder
+6. Generate new README
+
+## Key Files Modified
+- `notion_markdown_converter/converters/` (new directory structure)
+- `notion_markdown_converter/api.py` (new API wrapper)
+- `tests/test_converters.py` (comprehensive test suite)
+- Reference files structure and consistency fixes
+- Extended syntax support in both payload↔markdown converters
+
+## Architecture Notes
+The system now properly separates:
+- **API responses** (raw Notion API data with IDs, timestamps)
+- **Payloads** (clean page data suitable for creation)
+- **Markdown** (with extended syntax for Notion-specific elements)
+
+This creates a clear data flow: API → Payload → Markdown → Payload → API, with each transformation being idempotent and reversible.
+
+## Implementation Details
+
+### Extended Syntax Patterns
+The system now recognizes and converts these markdown extensions:
+```markdown
+# Standard markdown
+**bold** *italic* `code` [link](url)
+
+# Notion-specific extensions
+- [>] Toggle content
+### [>] Toggle header
+<aside>💡 Callout content</aside>
+<notion-user id="123">@username</notion-user>
+<notion-page id="123"></notion-page>
+<notion-date>August 10, 2025</notion-date>
+$E = mc^2$
+
+<notion-columns>
+<notion-column>
+Left column content
+</notion-column>
+<notion-column>
+Right column content
+</notion-column>
+</notion-columns>
+```
+
+### Data Type Definitions
+- **NotionApiResponse**: Raw API data with IDs, timestamps, metadata
+- **NotionPayload**: Clean page data, ready for creation/conversion
+- **MarkdownContent**: Text with extended syntax for Notion elements
+
+### Converter Structure
+```
+notion_markdown_converter/
+├── converters/
+│   ├── api_to_payload.py          # Clean API responses
+│   ├── payload_to_markdown.py     # Payload → Markdown
+│   ├── markdown_to_payload.py     # Markdown → Payload
+│   └── __init__.py                # Core API exports
+├── api.py                         # Notion API wrapper
+├── plugins/                       # Future extensibility
+└── __init__.py                    # Main exports
+```
+
+## Lessons Learned
+
+1. **Extended syntax was never implemented** - the reference files contained the intended syntax but converters didn't support it
+2. **Reference file consistency is critical** - small inconsistencies (URLs, titles) cause test failures
+3. **Block spacing is complex** - empty paragraphs, inter-block spacing, and list continuation rules need careful handling
+4. **Notion's rich text model** supports equations, mentions, and other inline elements beyond basic markdown
+5. **Column layouts** require recursive parsing and careful HTML-like tag handling
+
+## Future Development Priorities
+
+### High Priority
+- Character encoding standardization
+- Perfect round-trip idempotency
+- Block count consistency
+
+### Medium Priority  
+- Examples folder cleanup
+- README generation
+- Performance optimization
+
+### Low Priority
+- Plugin system implementation
+- Additional Notion block types
+- CLI tool creation
+
+This refactoring establishes the foundation for a robust, extensible Notion↔Markdown converter with proper support for Notion-specific features.

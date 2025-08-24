@@ -87,11 +87,17 @@ class NotionMarkdownToPayloadConverter:
             return None
         
         # Check for different block types
-        # Headings
-        if line.startswith('### '):
+        # Headings (including toggle headings)
+        if line.startswith('### [>] '):
+            return self._create_heading_block(line[8:], 3, is_toggle=True)
+        elif line.startswith('### '):
             return self._create_heading_block(line[4:], 3)
+        elif line.startswith('## [>] '):
+            return self._create_heading_block(line[7:], 2, is_toggle=True)
         elif line.startswith('## '):
             return self._create_heading_block(line[3:], 2)
+        elif line.startswith('# [>] '):
+            return self._create_heading_block(line[6:], 1, is_toggle=True)
         elif line.startswith('# '):
             return self._create_heading_block(line[2:], 1)
         
@@ -107,12 +113,28 @@ class NotionMarkdownToPayloadConverter:
         elif line.startswith('```'):
             return self._parse_code_block(line)
         
+        # Callout block
+        elif line.startswith('<aside>'):
+            return self._parse_callout_block()
+        
+        # Link to page block
+        elif line.startswith('<notion-page'):
+            return self._parse_link_to_page_block(line)
+        
+        # Column block
+        elif line.startswith('<notion-columns>'):
+            return self._parse_column_list_block()
+        
         # Lists
         elif re.match(r'^-\s+\[[ x]\]\s+', line):
             # Todo item
             checked = '[x]' in line
             text = re.sub(r'^-\s+\[[ x]\]\s+', '', line)
             return self._create_todo_block(text, checked, indent)
+        elif re.match(r'^-\s+\[>\]\s+', line):
+            # Toggle item
+            text = re.sub(r'^-\s+\[>\]\s+', '', line)
+            return self._create_toggle_block(text, indent)
         elif line.startswith('- '):
             # Bulleted list
             return self._create_bulleted_list_block(line[2:], indent)
@@ -244,7 +266,20 @@ class NotionMarkdownToPayloadConverter:
             }
         }
     
-    def _create_heading_block(self, text: str, level: int) -> Dict[str, Any]:
+    def _create_toggle_block(self, text: str, indent: int) -> Dict[str, Any]:
+        """Create a toggle block."""
+        rich_text = self._parse_inline_formatting(text)
+        
+        return {
+            "type": "toggle",
+            "toggle": {
+                "rich_text": rich_text,
+                "color": "default"
+            },
+            "children": []
+        }
+    
+    def _create_heading_block(self, text: str, level: int, is_toggle: bool = False) -> Dict[str, Any]:
         """Create a heading block."""
         heading_type = f"heading_{level}"
         return {
@@ -402,6 +437,10 @@ class NotionMarkdownToPayloadConverter:
         # Regular expressions for different formatting patterns
         # Order matters: more specific patterns first
         patterns = [
+            (r'\$([^$]+)\$', 'equation'),  # Math equations
+            (r'<notion-user\s+id="([^"]+)">@([^<]+)</notion-user>', 'user_mention'),  # User mentions
+            (r'<notion-page\s+id="([^"]+)"></notion-page>', 'page_mention'),  # Page mentions
+            (r'<notion-date>([^<]+)</notion-date>', 'date_mention'),  # Date mentions
             (r'\[([^\]]+)\]\(([^)]+)\)', 'link'),  # Links
             (r'`([^`]+)`', 'code'),  # Inline code
             (r'\*\*\*([^*]+)\*\*\*', 'bold_italic'),  # Bold and italic
@@ -437,6 +476,19 @@ class NotionMarkdownToPayloadConverter:
                     link_text = earliest_match.group(1)
                     link_url = earliest_match.group(2)
                     rich_text.append(self._create_link_text(link_text, link_url))
+                elif earliest_pattern_type == 'equation':
+                    expression = earliest_match.group(1)
+                    rich_text.append(self._create_equation_text(expression))
+                elif earliest_pattern_type == 'user_mention':
+                    user_id = earliest_match.group(1)
+                    user_name = earliest_match.group(2)
+                    rich_text.append(self._create_user_mention_text(user_id, user_name))
+                elif earliest_pattern_type == 'page_mention':
+                    page_id = earliest_match.group(1)
+                    rich_text.append(self._create_page_mention_text(page_id))
+                elif earliest_pattern_type == 'date_mention':
+                    date_text = earliest_match.group(1)
+                    rich_text.append(self._create_date_mention_text(date_text))
                 else:
                     formatted_text = earliest_match.group(1)
                     rich_text.append(self._create_formatted_text(formatted_text, earliest_pattern_type))
@@ -503,6 +555,228 @@ class NotionMarkdownToPayloadConverter:
                 "underline": False,
                 "code": False,
                 "color": "default"
+            }
+        }
+    
+    def _create_equation_text(self, expression: str) -> Dict[str, Any]:
+        """Create an equation rich text object."""
+        return {
+            "type": "equation",
+            "equation": {
+                "expression": expression
+            },
+            "annotations": {
+                "bold": False,
+                "italic": False,
+                "strikethrough": False,
+                "underline": False,
+                "code": False,
+                "color": "default"
+            }
+        }
+    
+    def _create_user_mention_text(self, user_id: str, user_name: str) -> Dict[str, Any]:
+        """Create a user mention rich text object."""
+        return {
+            "type": "mention",
+            "mention": {
+                "type": "user",
+                "user": {
+                    "id": user_id,
+                    "_name": user_name
+                }
+            },
+            "annotations": {
+                "bold": False,
+                "italic": False,
+                "strikethrough": False,
+                "underline": False,
+                "code": False,
+                "color": "default"
+            }
+        }
+    
+    def _create_page_mention_text(self, page_id: str) -> Dict[str, Any]:
+        """Create a page mention rich text object."""
+        return {
+            "type": "mention",
+            "mention": {
+                "type": "page",
+                "page": {
+                    "id": page_id
+                }
+            },
+            "annotations": {
+                "bold": False,
+                "italic": False,
+                "strikethrough": False,
+                "underline": False,
+                "code": False,
+                "color": "default"
+            }
+        }
+    
+    def _create_date_mention_text(self, date_text: str) -> Dict[str, Any]:
+        """Create a date mention rich text object."""
+        # Convert readable date to ISO format
+        iso_date = self._parse_date_to_iso(date_text)
+        
+        return {
+            "type": "mention",
+            "mention": {
+                "type": "date",
+                "date": {
+                    "start": iso_date,
+                    "end": None,
+                    "time_zone": None
+                }
+            },
+            "annotations": {
+                "bold": False,
+                "italic": False,
+                "strikethrough": False,
+                "underline": False,
+                "code": False,
+                "color": "default"
+            }
+        }
+    
+    def _parse_date_to_iso(self, date_text: str) -> str:
+        """Convert readable date format to ISO format."""
+        try:
+            from datetime import datetime
+            # Try to parse common formats like "August 10, 2025"
+            dt = datetime.strptime(date_text, "%B %d, %Y")
+            return dt.strftime("%Y-%m-%d")
+        except:
+            # Fallback: return as-is if parsing fails
+            return date_text
+    
+    def _parse_callout_block(self) -> Optional[Dict[str, Any]]:
+        """Parse a callout block starting with <aside>."""
+        # Current line should be <aside>
+        current_line = self.lines[self.current_line_index].strip()
+        if not current_line.startswith('<aside>'):
+            return None
+            
+        # Look for the callout content
+        self.current_line_index += 1
+        callout_content = []
+        icon = "💡"  # Default icon
+        
+        while self.current_line_index < len(self.lines):
+            line = self.lines[self.current_line_index].strip()
+            
+            if line == '</aside>':
+                break
+            elif not line:  # Empty line
+                callout_content.append("")
+            else:
+                # Check if first line starts with an emoji (icon)
+                if not callout_content and len(line) > 0 and ord(line[0]) > 127:  # Unicode emoji
+                    # Extract icon and remaining content
+                    icon = line[0]
+                    content = line[1:].strip()
+                    if content:
+                        callout_content.append(content)
+                else:
+                    callout_content.append(line)
+                    
+            self.current_line_index += 1
+        
+        # Create callout block
+        rich_text = []
+        children = []
+        
+        if callout_content:
+            # First line goes in rich_text, rest become paragraph children
+            if callout_content[0]:
+                rich_text = self._parse_inline_formatting(callout_content[0])
+            
+            # Additional lines become paragraph children
+            for content_line in callout_content[1:]:
+                if content_line:  # Skip empty lines for now
+                    children.append({
+                        "object": "block",
+                        "type": "paragraph",
+                        "paragraph": {
+                            "rich_text": self._parse_inline_formatting(content_line),
+                            "color": "default"
+                        }
+                    })
+        
+        return {
+            "object": "block",
+            "type": "callout",
+            "callout": {
+                "rich_text": rich_text,
+                "icon": {
+                    "type": "emoji",
+                    "emoji": icon
+                },
+                "color": "gray_background"
+            },
+            "children": children
+        }
+    
+    def _parse_link_to_page_block(self, line: str) -> Optional[Dict[str, Any]]:
+        """Parse a link to page block like <notion-page id=\"...\">."""
+        # Extract page ID from the HTML-like tag
+        match = re.search(r'<notion-page\s+id="([^"]+)"', line)
+        if match:
+            page_id = match.group(1)
+            return {
+                "object": "block",
+                "type": "link_to_page",
+                "link_to_page": {
+                    "type": "page_id",
+                    "page_id": page_id
+                }
+            }
+        return None
+    
+    def _parse_column_list_block(self) -> Optional[Dict[str, Any]]:
+        """Parse a column list block starting with <notion-columns>."""
+        # Skip the opening tag
+        self.current_line_index += 1
+        
+        columns = []
+        current_column_content = []
+        
+        while self.current_line_index < len(self.lines):
+            line = self.lines[self.current_line_index].strip()
+            
+            if line == '</notion-columns>':
+                break
+            elif line == '<notion-column>':
+                current_column_content = []
+            elif line == '</notion-column>':
+                # Process current column content
+                if current_column_content:
+                    # Parse the column content as markdown
+                    column_markdown = '\n'.join(current_column_content)
+                    temp_converter = NotionMarkdownToPayloadConverter()
+                    temp_result = temp_converter.convert_markdown(column_markdown)
+                    
+                    columns.append({
+                        "object": "block",
+                        "type": "column",
+                        "column": {
+                            "width_ratio": 0.5,  # Default equal width
+                            "children": temp_result.get('children', [])
+                        }
+                    })
+                current_column_content = []
+            else:
+                current_column_content.append(line)
+                
+            self.current_line_index += 1
+        
+        return {
+            "object": "block",
+            "type": "column_list",
+            "column_list": {
+                "children": columns
             }
         }
 
