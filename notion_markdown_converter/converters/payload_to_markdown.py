@@ -21,10 +21,26 @@ class NotionPayloadToMarkdownConverter:
         """
         markdown_lines = []
 
-        # Front matter: convert properties (including title-like) to YAML front matter if present
+        # Decide front matter emission based on properties and presence of H1 in children
         properties = notion_data.get('properties', {}) if isinstance(notion_data, dict) else {}
+        children = notion_data.get('children', []) if isinstance(notion_data, dict) else []
+
+        def has_leading_h1(blocks: List[Dict[str, Any]]) -> bool:
+            if not blocks:
+                return False
+            first = blocks[0]
+            return isinstance(first, dict) and first.get('type') == 'heading_1'
+
         if isinstance(properties, dict) and properties:
-            markdown_lines.extend(self._convert_properties_to_front_matter(properties))
+            # Omit title from front matter if the page starts with an H1 heading (to match references)
+            props_for_front_matter = dict(properties)
+            if has_leading_h1(children) and 'title' in props_for_front_matter:
+                try:
+                    del props_for_front_matter['title']
+                except Exception:
+                    pass
+            if props_for_front_matter:
+                markdown_lines.extend(self._convert_properties_to_front_matter(props_for_front_matter))
         
         # Process children blocks
         if 'children' in notion_data:

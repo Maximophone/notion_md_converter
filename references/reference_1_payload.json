@@ -2,7 +2,26 @@
   "parent": {
     "page_id": "placeholder"
   },
-  "properties": {},
+  "properties": {
+    "title": {
+      "title": [
+        {
+          "type": "text",
+          "text": {
+            "content": "Reference Markdown Features"
+          },
+          "annotations": {
+            "bold": false,
+            "italic": false,
+            "strikethrough": false,
+            "underline": false,
+            "code": false,
+            "color": "default"
+          }
+        }
+      ]
+    }
+  },
   "children": [
     {
       "type": "heading_1",

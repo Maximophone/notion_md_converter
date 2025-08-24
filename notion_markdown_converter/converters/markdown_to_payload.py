@@ -33,9 +33,29 @@ class NotionMarkdownToPayloadConverter:
             "children": []
         }
         
-        # Do not treat leading H1 as page title; keep it as a heading block for parity with references
-        self.current_line_index = 0
+        # Parse YAML front matter (properties) if present and properly closed
+        if self.lines and self.lines[0].strip() == '---':
+            # Only treat as front matter if there is a closing '---' somewhere below
+            has_closing = False
+            for idx in range(1, len(self.lines)):
+                if self.lines[idx].strip() == '---':
+                    has_closing = True
+                    break
+            if has_closing:
+                props, next_index = self._parse_front_matter_properties(self.lines, 0)
+                if props:
+                    page_data["properties"] = props
+                # Continue parsing body starting right after closing '---'
+                self.current_line_index = next_index
+            else:
+                # Not a valid front matter; treat normally so '---' can be a divider
+                self.current_line_index = 0
+        else:
+            # Do not treat leading H1 as page title; keep it as a heading block
+            self.current_line_index = 0
         
+        # Title is only taken from front matter; H1 remains a heading block in the body
+
         # Parse the rest of the content
         blocks = self._parse_blocks()
         page_data["children"] = blocks
@@ -434,6 +454,164 @@ class NotionMarkdownToPayloadConverter:
             else:
                 break
         return children
+
+    def _parse_front_matter_properties(self, lines: List[str], start_index: int) -> Tuple[Dict[str, Any], int]:
+        """Parse YAML-like front matter into Notion properties and return (properties, next_index)."""
+        i = start_index
+        n = len(lines)
+        properties: Dict[str, Any] = {}
+
+        def strip_quotes(s: str) -> str:
+            s = s.strip()
+            if len(s) >= 2 and ((s[0] == '"' and s[-1] == '"') or (s[0] == "'" and s[-1] == "'")):
+                return s[1:-1]
+            return s
+
+        def parse_scalar(val: str):
+            v = val.strip()
+            if v.lower() == 'null':
+                return None
+            if v.lower() == 'true':
+                return True
+            if v.lower() == 'false':
+                return False
+            # number?
+            try:
+                if '.' in v:
+                    return float(v)
+                return int(v)
+            except:
+                pass
+            return strip_quotes(v)
+
+        if i >= n or lines[i].strip() != '---':
+            return properties, start_index
+        i += 1
+
+        # Parse until closing '---'
+        while i < n:
+            raw = lines[i]
+            s = raw.strip()
+            if s == '---':
+                i += 1
+                break
+            if not s:
+                i += 1
+                continue
+            # key: value or key:
+            m = re.match(r'^(".*?"|[^:]+):\s*(.*)$', s)
+            if not m:
+                i += 1
+                continue
+            key_raw, rest = m.group(1), m.group(2)
+            key = strip_quotes(key_raw)
+            # Expect key format ntn:type:Name
+            km = re.match(r'^ntn:([a-z_]+):(.+)$', key)
+            if not km:
+                # Skip unknown keys
+                i += 1
+                continue
+            prop_type = km.group(1)
+            prop_name = km.group(2)
+
+            # Determine value kind
+            if rest == '':
+                # Could be list or map; inspect next indented lines
+                # List: lines starting with '  - '
+                # Map: lines starting with '  key: value'
+                j = i + 1
+                # Collect list
+                values_list = []
+                values_map: Dict[str, Any] = {}
+                while j < n:
+                    t = lines[j]
+                    if t.startswith('  - '):
+                        item_str = t[4:].strip()
+                        values_list.append(parse_scalar(item_str))
+                        j += 1
+                        continue
+                    if t.startswith('  '):
+                        mm = re.match(r'^\s{2}([^:]+):\s*(.*)$', t)
+                        if mm:
+                            sub_key = mm.group(1).strip()
+                            sub_val = parse_scalar(mm.group(2))
+                            values_map[sub_key] = sub_val
+                            j += 1
+                            continue
+                    break
+                # Apply parsed structure
+                if values_list:
+                    self._assign_property(properties, prop_name, prop_type, values_list)
+                    i = j
+                    continue
+                if values_map:
+                    self._assign_property(properties, prop_name, prop_type, values_map)
+                    i = j
+                    continue
+                # Empty structure
+                self._assign_property(properties, prop_name, prop_type, None)
+                i = j
+                continue
+            else:
+                # Inline scalar value
+                val = parse_scalar(rest)
+                self._assign_property(properties, prop_name, prop_type, val)
+                i += 1
+
+        return properties, i
+
+    def _assign_property(self, props: Dict[str, Any], name: str, ptype: str, value: Any) -> None:
+        """Assign a parsed front matter value into Notion properties."""
+        if ptype == 'title':
+            text = '' if value is None else str(value)
+            props[name] = {"title": [{"text": {"content": text}}]}
+            return
+        if ptype == 'rich_text':
+            text = '' if value is None else str(value)
+            props[name] = {"rich_text": [{"type": "text", "text": {"content": text}}]}
+            return
+        if ptype == 'url':
+            props[name] = {"url": ('' if value is None else str(value))}
+            return
+        if ptype == 'multi_select':
+            items = value or []
+            props[name] = {"multi_select": [{"name": str(v)} for v in items]}
+            return
+        if ptype == 'files':
+            urls = value or []
+            files = []
+            for u in urls:
+                us = str(u)
+                fname = us.split('/')[-1] if '/' in us else 'file'
+                files.append({"name": fname, "type": "external", "external": {"url": us}})
+            props[name] = {"files": files}
+            return
+        if ptype == 'date':
+            d = value or {}
+            props[name] = {"date": {"start": d.get('start'), "end": d.get('end'), "time_zone": d.get('time_zone')}}
+            return
+        if ptype == 'people':
+            ids = value or []
+            props[name] = {"people": [{"id": str(v)} for v in ids]}
+            return
+        if ptype == 'select':
+            props[name] = {"select": ({"name": None if value is None else str(value)})}
+            return
+        if ptype == 'status':
+            props[name] = {"status": ({"name": None if value is None else str(value)})}
+            return
+        if ptype == 'email':
+            props[name] = {"email": (None if value is None else str(value))}
+            return
+        if ptype == 'checkbox':
+            props[name] = {"checkbox": bool(value)}
+            return
+        if ptype == 'number':
+            props[name] = {"number": value}
+            return
+        if ptype == 'phone_number':
+            props[name] = {"phone_number": (None if value is None else str(value))}
+            return
     
     def _get_indent_level(self, line: str) -> int:
         """Calculate the indentation level of a line."""
