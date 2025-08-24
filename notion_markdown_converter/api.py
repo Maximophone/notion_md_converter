@@ -53,9 +53,6 @@ def fetch_page_blocks(page_id: str, client: Optional[Client] = None) -> List[Dic
     if client is None:
         client = create_notion_client()
     
-    blocks = []
-    start_cursor = None
-    
     def _fetch_children(block_id: str, cursor: Optional[str] = None) -> Dict[str, Any]:
         """Fetch children with optional cursor."""
         kwargs = {"block_id": block_id, "page_size": 100}
@@ -63,33 +60,24 @@ def fetch_page_blocks(page_id: str, client: Optional[Client] = None) -> List[Dic
             kwargs["start_cursor"] = cursor
         return client.blocks.children.list(**kwargs)
     
-    def _fetch_blocks_recursive(parent_id: str):
-        """Recursively fetch all blocks and their children."""
-        cursor = None
+    def _fetch_children_recursive(parent_id: str) -> List[Dict[str, Any]]:
+        """Fetch direct children for a parent and recursively populate each child's children."""
+        collected: List[Dict[str, Any]] = []
+        cursor: Optional[str] = None
         while True:
             response = _fetch_children(parent_id, cursor)
             page_blocks = response.get("results", [])
-            
             for block in page_blocks:
-                # Recursively fetch children if they exist
                 if block.get("has_children", False):
-                    child_response = _fetch_children(block["id"])
-                    children = child_response.get("results", [])
-                    
-                    # Recursively process children
-                    for child in children:
-                        _fetch_blocks_recursive(child["id"])
-                    
-                    block["children"] = children
-                
-                blocks.append(block)
-            
+                    # Recursively fetch only this block's direct children
+                    block["children"] = _fetch_children_recursive(block["id"])
+                collected.append(block)
             if not response.get("has_more"):
                 break
             cursor = response.get("next_cursor")
-    
-    _fetch_blocks_recursive(page_id)
-    return blocks
+        return collected
+
+    return _fetch_children_recursive(page_id)
 
 
 def fetch_page_full(page_id: str, client: Optional[Client] = None) -> Dict[str, Any]:

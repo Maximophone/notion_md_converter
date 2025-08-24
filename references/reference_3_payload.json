@@ -117,120 +117,6 @@
           {
             "type": "text",
             "text": {
-              "content": "Deeper than this"
-            },
-            "annotations": {
-              "bold": false,
-              "italic": false,
-              "strikethrough": false,
-              "underline": false,
-              "code": false,
-              "color": "default"
-            }
-          }
-        ],
-        "color": "default"
-      },
-      "children": [
-        {
-          "type": "bulleted_list_item",
-          "bulleted_list_item": {
-            "rich_text": [
-              {
-                "type": "text",
-                "text": {
-                  "content": "Now we are cycling bullet formats. It’s a good time to stop"
-                },
-                "annotations": {
-                  "bold": false,
-                  "italic": false,
-                  "strikethrough": false,
-                  "underline": false,
-                  "code": false,
-                  "color": "default"
-                }
-              }
-            ],
-            "color": "default"
-          }
-        }
-      ]
-    },
-    {
-      "type": "bulleted_list_item",
-      "bulleted_list_item": {
-        "rich_text": [
-          {
-            "type": "text",
-            "text": {
-              "content": "And come back"
-            },
-            "annotations": {
-              "bold": false,
-              "italic": false,
-              "strikethrough": false,
-              "underline": false,
-              "code": false,
-              "color": "default"
-            }
-          }
-        ],
-        "color": "default"
-      }
-    },
-    {
-      "type": "bulleted_list_item",
-      "bulleted_list_item": {
-        "rich_text": [
-          {
-            "type": "text",
-            "text": {
-              "content": "And even deeper"
-            },
-            "annotations": {
-              "bold": false,
-              "italic": false,
-              "strikethrough": false,
-              "underline": false,
-              "code": false,
-              "color": "default"
-            }
-          }
-        ],
-        "color": "default"
-      },
-      "children": [
-        {
-          "type": "bulleted_list_item",
-          "bulleted_list_item": {
-            "rich_text": [
-              {
-                "type": "text",
-                "text": {
-                  "content": "How deep does the rabbit hole go?"
-                },
-                "annotations": {
-                  "bold": false,
-                  "italic": false,
-                  "strikethrough": false,
-                  "underline": false,
-                  "code": false,
-                  "color": "default"
-                }
-              }
-            ],
-            "color": "default"
-          }
-        }
-      ]
-    },
-    {
-      "type": "bulleted_list_item",
-      "bulleted_list_item": {
-        "rich_text": [
-          {
-            "type": "text",
-            "text": {
               "content": "Like so"
             },
             "annotations": {
@@ -266,7 +152,125 @@
               }
             ],
             "color": "default"
-          }
+          },
+          "children": [
+            {
+              "type": "bulleted_list_item",
+              "bulleted_list_item": {
+                "rich_text": [
+                  {
+                    "type": "text",
+                    "text": {
+                      "content": "And even deeper"
+                    },
+                    "annotations": {
+                      "bold": false,
+                      "italic": false,
+                      "strikethrough": false,
+                      "underline": false,
+                      "code": false,
+                      "color": "default"
+                    }
+                  }
+                ],
+                "color": "default"
+              },
+              "children": [
+                {
+                  "type": "bulleted_list_item",
+                  "bulleted_list_item": {
+                    "rich_text": [
+                      {
+                        "type": "text",
+                        "text": {
+                          "content": "How deep does the rabbit hole go?"
+                        },
+                        "annotations": {
+                          "bold": false,
+                          "italic": false,
+                          "strikethrough": false,
+                          "underline": false,
+                          "code": false,
+                          "color": "default"
+                        }
+                      }
+                    ],
+                    "color": "default"
+                  },
+                  "children": [
+                    {
+                      "type": "bulleted_list_item",
+                      "bulleted_list_item": {
+                        "rich_text": [
+                          {
+                            "type": "text",
+                            "text": {
+                              "content": "Deeper than this"
+                            },
+                            "annotations": {
+                              "bold": false,
+                              "italic": false,
+                              "strikethrough": false,
+                              "underline": false,
+                              "code": false,
+                              "color": "default"
+                            }
+                          }
+                        ],
+                        "color": "default"
+                      },
+                      "children": [
+                        {
+                          "type": "bulleted_list_item",
+                          "bulleted_list_item": {
+                            "rich_text": [
+                              {
+                                "type": "text",
+                                "text": {
+                                  "content": "Now we are cycling bullet formats. It’s a good time to stop"
+                                },
+                                "annotations": {
+                                  "bold": false,
+                                  "italic": false,
+                                  "strikethrough": false,
+                                  "underline": false,
+                                  "code": false,
+                                  "color": "default"
+                                }
+                              }
+                            ],
+                            "color": "default"
+                          }
+                        }
+                      ]
+                    },
+                    {
+                      "type": "bulleted_list_item",
+                      "bulleted_list_item": {
+                        "rich_text": [
+                          {
+                            "type": "text",
+                            "text": {
+                              "content": "And come back"
+                            },
+                            "annotations": {
+                              "bold": false,
+                              "italic": false,
+                              "strikethrough": false,
+                              "underline": false,
+                              "code": false,
+                              "color": "default"
+                            }
+                          }
+                        ],
+                        "color": "default"
+                      }
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
         }
       ]
     },
@@ -487,28 +491,6 @@
       ]
     },
     {
-      "type": "paragraph",
-      "paragraph": {
-        "rich_text": [
-          {
-            "type": "text",
-            "text": {
-              "content": "Some text here"
-            },
-            "annotations": {
-              "bold": false,
-              "italic": false,
-              "strikethrough": false,
-              "underline": false,
-              "code": false,
-              "color": "default"
-            }
-          }
-        ],
-        "color": "default"
-      }
-    },
-    {
       "type": "toggle",
       "toggle": {
         "rich_text": [
@@ -550,7 +532,31 @@
               }
             ],
             "color": "default"
-          }
+          },
+          "children": [
+            {
+              "type": "paragraph",
+              "paragraph": {
+                "rich_text": [
+                  {
+                    "type": "text",
+                    "text": {
+                      "content": "Some text here"
+                    },
+                    "annotations": {
+                      "bold": false,
+                      "italic": false,
+                      "strikethrough": false,
+                      "underline": false,
+                      "code": false,
+                      "color": "default"
+                    }
+                  }
+                ],
+                "color": "default"
+              }
+            }
+          ]
         }
       ]
     },
@@ -980,128 +986,132 @@
       }
     },
     {
-      "type": "paragraph",
-      "paragraph": {
-        "rich_text": [
-          {
-            "type": "text",
-            "text": {
-              "content": "This is the text in the column on the left. Let’s try and make it long enough to span multiple lines."
-            },
-            "annotations": {
-              "bold": false,
-              "italic": false,
-              "strikethrough": false,
-              "underline": false,
-              "code": false,
-              "color": "default"
-            }
-          }
-        ],
-        "color": "default"
-      }
-    },
-    {
-      "type": "paragraph",
-      "paragraph": {
-        "rich_text": [],
-        "color": "default"
-      }
-    },
-    {
-      "type": "paragraph",
-      "paragraph": {
-        "rich_text": [
-          {
-            "type": "text",
-            "text": {
-              "content": "And this is the text in the column on the right. Similarly, let’s try and make it a tiny bit long."
-            },
-            "annotations": {
-              "bold": false,
-              "italic": false,
-              "strikethrough": false,
-              "underline": false,
-              "code": false,
-              "color": "default"
-            }
-          }
-        ],
-        "color": "default"
-      }
-    },
-    {
-      "type": "paragraph",
-      "paragraph": {
-        "rich_text": [],
-        "color": "default"
-      }
-    },
-    {
-      "type": "paragraph",
-      "paragraph": {
-        "rich_text": [
-          {
-            "type": "text",
-            "text": {
-              "content": "Let’s write a bit more."
-            },
-            "annotations": {
-              "bold": false,
-              "italic": false,
-              "strikethrough": false,
-              "underline": false,
-              "code": false,
-              "color": "default"
-            }
-          }
-        ],
-        "color": "default"
-      }
-    },
-    {
-      "type": "paragraph",
-      "paragraph": {
-        "rich_text": [],
-        "color": "default"
-      }
-    },
-    {
-      "type": "paragraph",
-      "paragraph": {
-        "rich_text": [
-          {
-            "type": "text",
-            "text": {
-              "content": "And more."
-            },
-            "annotations": {
-              "bold": false,
-              "italic": false,
-              "strikethrough": false,
-              "underline": false,
-              "code": false,
-              "color": "default"
-            }
-          }
-        ],
-        "color": "default"
-      }
-    },
-    {
       "type": "column_list",
       "column_list": {
         "children": [
           {
             "type": "column",
             "column": {
-              "width_ratio": 0.5
+              "width_ratio": 0.5,
+              "children": [
+                {
+                  "type": "paragraph",
+                  "paragraph": {
+                    "rich_text": [
+                      {
+                        "type": "text",
+                        "text": {
+                          "content": "This is the text in the column on the left. Let’s try and make it long enough to span multiple lines."
+                        },
+                        "annotations": {
+                          "bold": false,
+                          "italic": false,
+                          "strikethrough": false,
+                          "underline": false,
+                          "code": false,
+                          "color": "default"
+                        }
+                      }
+                    ],
+                    "color": "default"
+                  }
+                },
+                {
+                  "type": "paragraph",
+                  "paragraph": {
+                    "rich_text": [],
+                    "color": "default"
+                  }
+                }
+              ]
             }
           },
           {
             "type": "column",
             "column": {
-              "width_ratio": 0.5
+              "width_ratio": 0.5,
+              "children": [
+                {
+                  "type": "paragraph",
+                  "paragraph": {
+                    "rich_text": [
+                      {
+                        "type": "text",
+                        "text": {
+                          "content": "And this is the text in the column on the right. Similarly, let’s try and make it a tiny bit long."
+                        },
+                        "annotations": {
+                          "bold": false,
+                          "italic": false,
+                          "strikethrough": false,
+                          "underline": false,
+                          "code": false,
+                          "color": "default"
+                        }
+                      }
+                    ],
+                    "color": "default"
+                  }
+                },
+                {
+                  "type": "paragraph",
+                  "paragraph": {
+                    "rich_text": [],
+                    "color": "default"
+                  }
+                },
+                {
+                  "type": "paragraph",
+                  "paragraph": {
+                    "rich_text": [
+                      {
+                        "type": "text",
+                        "text": {
+                          "content": "Let’s write a bit more."
+                        },
+                        "annotations": {
+                          "bold": false,
+                          "italic": false,
+                          "strikethrough": false,
+                          "underline": false,
+                          "code": false,
+                          "color": "default"
+                        }
+                      }
+                    ],
+                    "color": "default"
+                  }
+                },
+                {
+                  "type": "paragraph",
+                  "paragraph": {
+                    "rich_text": [],
+                    "color": "default"
+                  }
+                },
+                {
+                  "type": "paragraph",
+                  "paragraph": {
+                    "rich_text": [
+                      {
+                        "type": "text",
+                        "text": {
+                          "content": "And more."
+                        },
+                        "annotations": {
+                          "bold": false,
+                          "italic": false,
+                          "strikethrough": false,
+                          "underline": false,
+                          "code": false,
+                          "color": "default"
+                        }
+                      }
+                    ],
+                    "color": "default"
+                  }
+                }
+              ]
             }
           }
         ]
