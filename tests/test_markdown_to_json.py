@@ -310,7 +310,7 @@ def test():
         json_to_md_converter = NotionToMarkdownConverter()
         
         # Read the reference JSON
-        with open('references/reference_1.json', 'r', encoding='utf-8') as f:
+        with open('references/reference_1_payload.json', 'r', encoding='utf-8') as f:
             original_json = json.load(f)
         
         # Convert to Markdown
