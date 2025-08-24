@@ -273,8 +273,8 @@ with open('exported_page.md', 'w', encoding='utf-8') as f:
 # Fetch a page from Notion
 python scripts/fetch_page.py
 
-# Convert and create a new page
-python scripts/convert_and_create_page.py
+# Upload a local markdown file to Notion under a parent page
+python scripts/upload_markdown.py path/to/file.md "https://www.notion.so/Parent-Page-URL" --title "Optional Title"
 ```
 
 ## Architecture
@@ -379,9 +379,9 @@ from notion_markdown_converter import (
 ## Limitations & Known Issues
 
 - Character encoding edge cases may need refinement (smart quotes)
-- Round-trip conversion is ~85% perfect (improvements ongoing)
+- Idempotency is validated on the provided references; additional edge cases may remain
 - Some advanced Notion blocks not yet supported (embeds, databases)
-- Empty line spacing may vary slightly between conversions
+- Blank lines are preserved only when represented as explicit empty paragraph blocks in Notion; arbitrary visual spacing between blocks is not inferred
 
 ## Contributing
 
