@@ -1,18 +1,8 @@
 {
     "parent": {
-        "page_id": "24a865260e43802994ffdd4d5100159d"
+        "page_id": "placeholder"
     },
-    "properties": {
-        "title": {
-            "title": [
-                {
-                    "text": {
-                        "content": "My New Page from API"
-                    }
-                }
-            ]
-        }
-    },
+    "properties": {},
     "children": [
         {
             "type": "paragraph",

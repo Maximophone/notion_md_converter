@@ -1,11 +1,13 @@
 #!/usr/bin/env python3
 """
-Bidirectional Notion-Markdown Converter Example
+Notion Markdown Converter Example - New API
 
-This example demonstrates both conversion directions:
-1. JSON to Markdown
-2. Markdown to JSON
-3. Round-trip conversion (JSON -> MD -> JSON and MD -> JSON -> MD)
+This example demonstrates the three core conversion types:
+1. NotionApiResponse → NotionPayload (cleaning API data)
+2. NotionPayload → MarkdownContent (structured data to text)  
+3. MarkdownContent → NotionPayload (text to structured data)
+4. Round-trip conversion testing
+5. API integration examples
 """
 
 import json
@@ -15,36 +17,75 @@ import os
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from notion_markdown_converter import (
-    NotionToMarkdownConverter, 
-    json_to_markdown_file,
-    MarkdownToNotionConverter, 
-    markdown_to_json_file
+    # New core API
+    api_to_payload,
+    payload_to_markdown, 
+    markdown_to_payload,
+    NotionApiToPayloadConverter,
+    NotionPayloadToMarkdownConverter,
+    NotionMarkdownToPayloadConverter,
+    
+    # Legacy compatibility
+    NotionToMarkdownConverter,
+    MarkdownToNotionConverter
 )
 
 
-def demo_json_to_markdown():
-    """Demonstrate JSON to Markdown conversion."""
+def demo_api_to_payload():
+    """Demonstrate API response to payload conversion."""
     print("=" * 60)
-    print("JSON to Markdown Conversion")
+    print("1. NotionApiResponse → NotionPayload (Core Function 1)")
     print("=" * 60)
     
-    # Convert the reference JSON file to Markdown
-    json_to_markdown_file('references/reference_1.json', 'output/reference_1_converted.md')
+    # Load API response
+    with open('references/reference_1_api.json', 'r', encoding='utf-8') as f:
+        api_data = json.load(f)
     
-    # Read and display the result
-    with open('output/reference_1_converted.md', 'r', encoding='utf-8') as f:
-        markdown_content = f.read()
+    print(f"API response has {len(api_data)} blocks with API-specific fields")
+    print("Sample API block fields:", list(api_data[0].keys())[:5], "...")
     
-    print("\nConverted Markdown (first 500 chars):")
+    # Convert using core function
+    payload = api_to_payload(api_data)
+    
+    print(f"Payload has {len(payload['children'])} clean blocks")
+    print("Sample payload block fields:", list(payload['children'][0].keys()))
+    print("API-specific fields removed: id, created_time, last_edited_time, etc.")
+    
+    # Save result
+    with open('output/reference_1_payload.json', 'w', encoding='utf-8') as f:
+        json.dump(payload, f, indent=2, ensure_ascii=False)
+    print("Payload saved to: output/reference_1_payload.json")
+
+
+def demo_payload_to_markdown():
+    """Demonstrate payload to markdown conversion."""
+    print("\n" + "=" * 60)
+    print("2. NotionPayload → MarkdownContent (Core Function 2)")
+    print("=" * 60)
+    
+    # Load clean payload
+    with open('references/reference_1_payload.json', 'r', encoding='utf-8') as f:
+        payload_data = json.load(f)
+    
+    print(f"Payload has {len(payload_data['children'])} blocks")
+    
+    # Convert using core function
+    markdown_content = payload_to_markdown(payload_data)
+    
+    print("Converted to Markdown (first 500 chars):")
     print(markdown_content[:500])
     print("...")
-    print("\nFull markdown saved to: output/reference_1_converted.md")
+    
+    # Save result
+    with open('output/reference_1_markdown.md', 'w', encoding='utf-8') as f:
+        f.write(markdown_content)
+    print("Markdown saved to: output/reference_1_markdown.md")
 
 
-def demo_markdown_to_json():
-    """Demonstrate Markdown to JSON conversion."""
+def demo_markdown_to_payload():
+    """Demonstrate Markdown to payload conversion."""
     print("\n" + "=" * 60)
-    print("Markdown to JSON Conversion")
+    print("3. MarkdownContent → NotionPayload (Core Function 3)")
     print("=" * 60)
     
     # Create a sample Markdown file
