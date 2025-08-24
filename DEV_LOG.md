@@ -56,3 +56,30 @@ The core features should be refactored with potential extensibility in mind.
 
 Once this is all done, a new README file should be produced. 
 
+*Same day, but after the AI log*
+Okay so, I had an AI try to do the refactoring but there are still a lot of problems remaining with the core conversion. And it turns out that the problems were already there. They were just not being caught by the test because the previous test was only working on reference 1 and it was also not actually checking that the generated Markdown was the same as the reference Markdown. 
+
+My focus should be on fixing these core issues.
+Some examples I noticed:
+- The Notion API returns a weird character for apostrophes. I think the simplest way to deal with this right now is to keep the weird character in the Markdown. 
+- The indentation in sub-list items is off. And actually, this point makes me suddenly realize that we cannot have a fully idempotent two-way conversion. I write a bit more on this below. 
+- Just noticed another potential problem with numbered lists. In Notion, you have the option to pick the symbol you want to have to number your list, but this seems to be lost by the API. This information is not in the payload. I think we will ignore this problem for now. Although there is still a problem with numbered_list because our conversion does not get the numbers and letters right. It should use the default for Notion: number -> letter -> lowercase roman numeral -> number -> ...
+- Another problem is with the tables when we convert from the payload to a Markdown table, the indentation is lost. As in, each cell has exactly one space between its borders and the text it contains. Whereas our reference Markdown file has proper spacing. 
+
+> [!warning]
+> Yeah, I just realized that the fully idempotent conversion is not possible. An example of why is the indentation of lists. Notion does not offer flexibility on that. There is just a standard, and that's it. So, there is a loss of information when we convert from Markdown to Notion. The indentation information is lost. So we should not have an idempotency test in our test suite. 
+
+*Same day, but after the latest AI log*
+
+All right, we managed to make all the test pass. The core conversion seems to be working. 
+Now the question is, what is the next step? I think I want to add the handling of databases, as in pages within databases.
+Basically, that means that we must be able to handle page properties, so the payload object must preserve these. And the way I want to do it is by converting them to a front matter in the Markdown. What is a little bit tricky is that they need to be typed, as in the type must remain explicit. What I think we should do is have a specific syntax for the keys in the Markdown that indicates the type. It should also indicate that it's a Notion database property. 
+Maybe something like this :
+property in the database -> "Tag" of type "Select"
+key in the frontmatter -> "ntn:select:Tag" (ntn for notion).
+
+What I should do is start by adding a new reference for this in my list of references.
+Ok, this is done. I have added reference_4_api.json.
+The next step will be to modify the function that takes the API and converts it into a payload so that the properties are preserved and use that to generate the associated payload. In the meantime, we need to make sure that nothing else breaks by doing so specifically the API. And we need to update the other references so that the properties are preserved for them as well. 
+
+Next we will have to define the associated reference markdown. 
