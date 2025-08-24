@@ -20,36 +20,11 @@ class NotionPayloadToMarkdownConverter:
             The converted Markdown string
         """
         markdown_lines = []
-        
-        # Handle page title if present
-        # Check both old format (properties.title.title) and new format (properties.title)
-        if 'properties' in notion_data:
-            if 'title' in notion_data['properties']:
-                title_property = notion_data['properties']['title']
-                title_text = None
-                
-                # Handle both formats
-                if isinstance(title_property, dict):
-                    if 'title' in title_property and title_property['title']:
-                        # Standard Notion format: properties.title.title is an array
-                        if isinstance(title_property['title'], list):
-                            # Check if it's already rich text format
-                            if title_property['title'] and isinstance(title_property['title'][0], dict) and 'text' in title_property['title'][0]:
-                                # It's our converted format, extract the text
-                                title_text = title_property['title'][0]['text'].get('content', '')
-                            else:
-                                title_text = self._convert_rich_text(title_property['title'])
-                        else:
-                            title_text = self._convert_rich_text(title_property['title'])
-                    elif 'text' in title_property:
-                        # Direct text format from our converter
-                        title_text = title_property['text']['content'] if isinstance(title_property['text'], dict) else title_property['text']
-                elif isinstance(title_property, list):
-                    title_text = self._convert_rich_text(title_property)
-                
-                if title_text:
-                    markdown_lines.append(f"# {title_text}")
-                    markdown_lines.append("")
+
+        # Front matter: convert properties (including title-like) to YAML front matter if present
+        properties = notion_data.get('properties', {}) if isinstance(notion_data, dict) else {}
+        if isinstance(properties, dict) and properties:
+            markdown_lines.extend(self._convert_properties_to_front_matter(properties))
         
         # Process children blocks
         if 'children' in notion_data:
@@ -475,6 +450,124 @@ class NotionPayloadToMarkdownConverter:
     def _convert_column_list(self, block: Dict[str, Any], indent: str) -> List[str]:
         """Convert a column list block."""
         return [f"{indent}<notion-columns>"]
+
+    def _convert_properties_to_front_matter(self, properties: Dict[str, Any]) -> List[str]:
+        """Serialize Notion page properties to YAML front matter with typed ntn: keys."""
+        lines: List[str] = ["---"]
+
+        # Reorder so that title-like properties (value contains 'title') come first
+        items: List[tuple] = list(properties.items())
+        title_items = [(k, v) for k, v in items if isinstance(v, dict) and 'title' in v]
+        non_title_items = [(k, v) for k, v in items if not (isinstance(v, dict) and 'title' in v)]
+        ordered = title_items + non_title_items
+
+        def q(s: str) -> str:
+            # Quote a string for YAML front matter using double quotes
+            escaped = s.replace('"', '\\"')
+            return f'"{escaped}"'
+
+        for prop_name, prop_val in ordered:
+            if not isinstance(prop_val, dict):
+                continue
+            # Title
+            if 'title' in prop_val:
+                title_text = self._convert_rich_text(prop_val.get('title', []))
+                lines.append(f'{q(f"ntn:title:{prop_name}")}: {q(title_text)}')
+                continue
+
+            # Rich text
+            if 'rich_text' in prop_val:
+                text = self._convert_rich_text(prop_val.get('rich_text', []))
+                lines.append(f'{q(f"ntn:rich_text:{prop_name}")}: {q(text)}')
+                continue
+
+            # URL
+            if 'url' in prop_val:
+                url = prop_val.get('url') or ''
+                lines.append(f'{q(f"ntn:url:{prop_name}")}: {q(str(url))}')
+                continue
+
+            # Multi-select
+            if 'multi_select' in prop_val and isinstance(prop_val.get('multi_select'), list):
+                lines.append(f'{q(f"ntn:multi_select:{prop_name}")}:')
+                for opt in prop_val.get('multi_select') or []:
+                    name = opt.get('name') if isinstance(opt, dict) else str(opt)
+                    lines.append(f'  - {q(str(name))}')
+                continue
+
+            # Files
+            if 'files' in prop_val and isinstance(prop_val.get('files'), list):
+                lines.append(f'{q(f"ntn:files:{prop_name}")}:')
+                for f in prop_val.get('files') or []:
+                    url = None
+                    if isinstance(f, dict):
+                        if f.get('type') == 'external' and isinstance(f.get('external'), dict):
+                            url = f['external'].get('url')
+                        elif f.get('type') == 'file' and isinstance(f.get('file'), dict):
+                            url = f['file'].get('url')
+                    if url:
+                        lines.append(f'  - {q(str(url))}')
+                continue
+
+            # Date
+            if 'date' in prop_val and isinstance(prop_val.get('date'), dict):
+                d = prop_val['date']
+                lines.append(f'{q(f"ntn:date:{prop_name}")}:')
+                # start
+                if d.get('start') is not None:
+                    lines.append(f'  start: {q(str(d.get("start")))}')
+                else:
+                    lines.append('  start: null')
+                # end
+                lines.append(f'  end: {q(str(d.get("end")))}' if d.get('end') is not None else '  end: null')
+                # time_zone
+                lines.append(f'  time_zone: {q(str(d.get("time_zone")))}' if d.get('time_zone') is not None else '  time_zone: null')
+                continue
+
+            # People
+            if 'people' in prop_val and isinstance(prop_val.get('people'), list):
+                lines.append(f'{q(f"ntn:people:{prop_name}")}:')
+                for p in prop_val.get('people') or []:
+                    pid = p.get('id') if isinstance(p, dict) else str(p)
+                    lines.append(f'  - {q(str(pid))}')
+                continue
+
+            # Select
+            if 'select' in prop_val and isinstance(prop_val.get('select'), dict):
+                name = prop_val['select'].get('name')
+                lines.append(f'{q(f"ntn:select:{prop_name}")}: {q(str(name)) if name is not None else "null"}')
+                continue
+
+            # Status
+            if 'status' in prop_val and isinstance(prop_val.get('status'), dict):
+                name = prop_val['status'].get('name')
+                lines.append(f'{q(f"ntn:status:{prop_name}")}: {q(str(name)) if name is not None else "null"}')
+                continue
+
+            # Email
+            if 'email' in prop_val:
+                lines.append(f'{q(f"ntn:email:{prop_name}")}: {q(str(prop_val.get("email")))}')
+                continue
+
+            # Checkbox
+            if 'checkbox' in prop_val:
+                val = prop_val.get('checkbox')
+                lines.append(f'{q(f"ntn:checkbox:{prop_name}")}: {"true" if val else "false"}')
+                continue
+
+            # Number
+            if 'number' in prop_val:
+                num = prop_val.get('number')
+                lines.append(f'{q(f"ntn:number:{prop_name}")}: {num if num is not None else "null"}')
+                continue
+
+            # Phone number
+            if 'phone_number' in prop_val:
+                lines.append(f'{q(f"ntn:phone_number:{prop_name}")}: {q(str(prop_val.get("phone_number")))}')
+                continue
+
+        lines.append('---')
+        return lines
     
     def _get_block_text(self, block: Dict[str, Any], block_type: str) -> str:
         """Extract text from a block's rich_text field."""
