@@ -154,8 +154,10 @@ def create_page_from_payload(payload: Dict[str, Any], client: Optional[Client] =
         """Split block into block data and children."""
         children = []
         if isinstance(block, dict):
-            # Special handling for column structures
-            if block.get("type") in ("column_list", "column"):
+            # Special handling for structures whose children must remain nested in type payload
+            # - column_list/column: children are handled separately by API
+            # - table: Notion expects table.rows to be provided under table.children at creation
+            if block.get("type") in ("column_list", "column", "table"):
                 return block, []
                 
             # Extract top-level children
@@ -169,7 +171,7 @@ def create_page_from_payload(payload: Dict[str, Any], client: Optional[Client] =
             # Also handle nested children under type key
             block_type = block.get("type")
             if (block_type and 
-                block_type not in ("column_list", "column") and 
+                block_type not in ("column_list", "column", "table") and 
                 isinstance(block.get(block_type), dict) and 
                 isinstance(block[block_type].get("children"), list)):
                 children = children or block[block_type].get("children", [])
