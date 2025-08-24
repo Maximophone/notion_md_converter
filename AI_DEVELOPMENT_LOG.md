@@ -443,3 +443,61 @@ notion_markdown_converter/
 - CLI tool creation
 
 This refactoring establishes the foundation for a robust, extensible Notion↔Markdown converter with proper support for Notion-specific features.
+
+---
+
+# 2025-08-24 - Spacing, Tables, Ordered Lists, Toggles, and Idempotency Fixes
+
+## Session Overview
+- Goal: Make payload→Markdown tests stable, fix Markdown→payload discrepancies, and get roundtrip idempotency green.
+- Outcome: All conversion tests pass; idempotency passes for both references. Upload script works with tables.
+
+## What Broke and Why
+- Reference discrepancies:
+  - reference_1.md had extraneous blank lines not present in the payload; these caused payload→Markdown mismatches.
+  - Both references needed a final trailing blank line to reflect an explicit empty paragraph at the end of the payload.
+- Spacing policy:
+  - We were inserting blank lines between different block types. Notion API does not implicitly encode layout gaps; blank lines should come only from explicit empty paragraph blocks (paragraph.rich_text = []).
+- Upload failure (API):
+  - Table creation failed with “table.children should be defined” because our page creation flow stripped `table.children` while flattening children (valid for many blocks but not tables).
+- Idempotency gaps:
+  - Ordered list indentation for lettered/roman markers (a., b., i., ii., …) did not roundtrip.
+  - Toggles (block and toggle headings) weren’t capturing nested children in Markdown→payload, and toggle headings weren’t flagged `is_toggleable`.
+
+## Fixes Implemented
+- Payload → Markdown
+  - Removed auto blank-line insertion between block types; blank lines now come only from explicit empty paragraphs.
+  - Preserved final trailing blank line when the payload ends with an empty paragraph.
+  - For columns, trimmed trailing empty lines inside column content to avoid extra blank lines before `</notion-column>`; kept page-level trailing blank when present.
+  - Result: reference_1 and reference_3 payload→Markdown tests pass.
+
+- Markdown → Payload
+  - Blank lines now parse as explicit empty paragraph blocks.
+  - Do not extract leading H1 as page title (kept as a heading) to match the references.
+  - Added support for ordered list markers beyond digits: letters (a., b., …) and roman numerals (i., ii., …). These are treated as `numbered_list_item`.
+  - Updated indent detection: ordered lists (digits/letters/roman) use 3-space indentation; bullets remain 2-space.
+  - Toggles:
+    - `- [>]` toggle items now capture nested children under `toggle.children`.
+    - Toggle headings (e.g., `### [>]`) now set `is_toggleable: true` and capture nested content as children.
+  - Result: reference_1 and reference_3 Markdown→payload tests pass.
+
+- Notion API Upload Path
+  - Fixed `create_page_from_payload` to keep `table.children` intact during creation (and to skip child-stripping for `table`, `column_list`, and `column`).
+  - Resolved API validation error: “body.children[n].table.children should be defined.” Upload of reference_1 now succeeds.
+
+## Test Status
+- Payload→Markdown: PASS (both references)
+- Markdown→Payload: PASS (both references)
+- Idempotency (Markdown → Payload → Markdown): PASS (both references)
+- Idempotency (Payload → Markdown → Payload): PASS (both references)
+
+## Notes and Learnings
+- The Notion API returns blank lines only as explicit empty paragraph blocks; do not derive inter-block spacing implicitly.
+- Table blocks must be created with `table.children` containing `table_row` children; flattening breaks creation.
+- Ordered list marker variants in Markdown should normalize to `numbered_list_item` for consistent roundtrip behavior.
+- Toggle blocks and toggleable headings require capturing nested content and proper `is_toggleable` flags to roundtrip.
+
+## Follow-ups / Ideas
+- Improve table alignment heuristics (we’re matching references; consider configurable alignment strategies if more datasets appear).
+- Expand test corpus for complex nesting (mixed toggles inside lists, list blocks in columns, etc.).
+- Consider normalizing smart quotes behavior explicitly if more references require it.
