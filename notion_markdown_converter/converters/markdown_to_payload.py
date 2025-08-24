@@ -76,15 +76,27 @@ class NotionMarkdownToPayloadConverter:
         # Check for different block types
         # Headings (including toggle headings)
         if line.startswith('### [>] '):
-            return self._create_heading_block(line[8:], 3, is_toggle=True)
+            block = self._create_heading_block(line[8:], 3, is_toggle=True)
+            children = self._parse_nested_blocks(indent)
+            if children:
+                block["children"] = children
+            return block
         elif line.startswith('### '):
             return self._create_heading_block(line[4:], 3)
         elif line.startswith('## [>] '):
-            return self._create_heading_block(line[7:], 2, is_toggle=True)
+            block = self._create_heading_block(line[7:], 2, is_toggle=True)
+            children = self._parse_nested_blocks(indent)
+            if children:
+                block["children"] = children
+            return block
         elif line.startswith('## '):
             return self._create_heading_block(line[3:], 2)
         elif line.startswith('# [>] '):
-            return self._create_heading_block(line[6:], 1, is_toggle=True)
+            block = self._create_heading_block(line[6:], 1, is_toggle=True)
+            children = self._parse_nested_blocks(indent)
+            if children:
+                block["children"] = children
+            return block
         elif line.startswith('# '):
             return self._create_heading_block(line[2:], 1)
         
@@ -125,9 +137,9 @@ class NotionMarkdownToPayloadConverter:
         elif line.startswith('- '):
             # Bulleted list
             return self._create_bulleted_list_block(line[2:], indent)
-        elif re.match(r'^\d+\.\s+', line):
-            # Numbered list
-            text = re.sub(r'^\d+\.\s+', '', line)
+        elif re.match(r'^\d+\.\s+', line) or re.match(r'^[a-zA-Z]\.\s+', line) or re.match(r'(?i:^[ivxlcdm]+)\.\s+', line):
+            # Ordered list (numeric, alpha, or roman numeral markers) → treat as numbered list
+            text = re.sub(r'^(?:\d+|[a-zA-Z]|(?i:[ivxlcdm]+))\.\s+', '', line)
             return self._create_numbered_list_block(text, indent)
         
         # Table
@@ -254,17 +266,20 @@ class NotionMarkdownToPayloadConverter:
         }
     
     def _create_toggle_block(self, text: str, indent: int) -> Dict[str, Any]:
-        """Create a toggle block."""
-        rich_text = self._parse_inline_formatting(text)
-        
-        return {
+        """Create a toggle block and parse nested children at greater indent."""
+        block = {
+            "object": "block",
             "type": "toggle",
             "toggle": {
-                "rich_text": rich_text,
+                "rich_text": self._parse_inline_formatting(text),
                 "color": "default"
             },
             "children": []
         }
+        children = self._parse_nested_list_items(indent)
+        if children:
+            block["children"] = children
+        return block
     
     def _create_heading_block(self, text: str, level: int, is_toggle: bool = False) -> Dict[str, Any]:
         """Create a heading block."""
@@ -274,7 +289,7 @@ class NotionMarkdownToPayloadConverter:
             "type": heading_type,
             heading_type: {
                 "rich_text": self._parse_inline_formatting(text),
-                "is_toggleable": False,
+                "is_toggleable": bool(is_toggle),
                 "color": "default"
             }
         }
@@ -402,14 +417,33 @@ class NotionMarkdownToPayloadConverter:
                 break
         
         return children
+
+    def _parse_nested_blocks(self, parent_indent: int) -> List[Dict[str, Any]]:
+        """Parse nested blocks (generic) following a parent at a higher indent."""
+        children: List[Dict[str, Any]] = []
+        temp_index = self.current_line_index + 1
+        while temp_index < len(self.lines):
+            line = self.lines[temp_index]
+            indent = self._get_indent_level(line)
+            if indent > parent_indent:
+                self.current_line_index = temp_index
+                child_block = self._parse_block(line.strip(), indent)
+                if child_block:
+                    children.append(child_block)
+                temp_index = self.current_line_index + 1
+            else:
+                break
+        return children
     
     def _get_indent_level(self, line: str) -> int:
         """Calculate the indentation level of a line."""
         # Count leading spaces (2 spaces = 1 indent level for bullets, 3 for numbers)
         spaces = len(line) - len(line.lstrip())
         
-        # Check if it's a numbered list (use 3-space indents)
-        if re.match(r'^\s*\d+\.\s+', line):
+        # Check if it's an ordered list (digits, alpha, or roman) → 3-space indents
+        if (re.match(r'^\s*\d+\.\s+', line) or
+            re.match(r'^\s*[a-zA-Z]\.\s+', line) or
+            re.match(r'(?i:^\s*[ivxlcdm]+\.\s+)', line)):
             return spaces // 3
         else:
             return spaces // 2
