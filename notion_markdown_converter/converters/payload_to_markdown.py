@@ -6,8 +6,8 @@ class NotionPayloadToMarkdownConverter:
     """Converts Notion payload JSON (clean page data) to Markdown format."""
     
     def __init__(self):
-        self.numbered_list_counter = 0
-        self.in_numbered_list = False
+        self.numbered_list_counters_by_indent: Dict[int, int] = {}
+        self.in_numbered_list_by_indent: Dict[int, bool] = {}
         
     def convert_page(self, notion_data: Dict[str, Any]) -> str:
         """
@@ -71,13 +71,14 @@ class NotionPayloadToMarkdownConverter:
             block_type = block.get('type', '')
             
             # Reset numbered list counter when we exit a numbered list at the same level
-            if indent_level == 0:
-                if prev_block_type == 'numbered_list_item' and block_type != 'numbered_list_item':
-                    self.numbered_list_counter = 0
-                    self.in_numbered_list = False
-                elif block_type == 'numbered_list_item' and not self.in_numbered_list:
-                    self.numbered_list_counter = 0
-                    self.in_numbered_list = True
+            if prev_block_type == 'numbered_list_item' and block_type != 'numbered_list_item':
+                # Leaving a numbered list at this indent level
+                self.numbered_list_counters_by_indent[indent_level] = 0
+                self.in_numbered_list_by_indent[indent_level] = False
+            elif block_type == 'numbered_list_item' and not self.in_numbered_list_by_indent.get(indent_level, False):
+                # Entering a numbered list at this indent level
+                self.numbered_list_counters_by_indent[indent_level] = 0
+                self.in_numbered_list_by_indent[indent_level] = True
             
             # Handle special column list processing
             if block_type == 'column_list':
@@ -128,17 +129,13 @@ class NotionPayloadToMarkdownConverter:
             
             # Convert the block normally
             block_lines = self._convert_block(block, indent_level)
-            
-            # Add spacing between different block types (but not between list items or before dividers)
-            if lines and block_lines and not self._is_list_continuation(prev_block_type, block_type):
-                # Check if current block is a divider and previous line ends with ":"
-                # In this case, don't add extra spacing
-                if not (block_type == 'divider' and lines[-1].endswith(':')):
-                    lines.append("")
-                
+
             lines.extend(block_lines)
             prev_block_type = block_type
             
+        # Trim trailing empty lines within this group
+        while lines and lines[-1] == "":
+            lines.pop()
         return lines
     
     def _is_list_continuation(self, prev_type: Optional[str], curr_type: str) -> bool:
@@ -246,17 +243,59 @@ class NotionPayloadToMarkdownConverter:
         """Convert a numbered list item."""
         text = self._get_block_text(block, 'numbered_list_item')
         if text:
-            self.numbered_list_counter += 1
-            # For nested numbered lists in Markdown, use 3 spaces to align with parent text
-            # Only modify if we have indentation (meaning it's nested)
-            list_indent = indent
-            if indent:
-                # Count indent level (each level is 4 spaces)
-                indent_level = len(indent) // 4
-                # For numbered lists, use 3 spaces per level
-                list_indent = "   " * indent_level
-            return [f"{list_indent}{self.numbered_list_counter}. {text}"]
+            # Determine indent level from indent string (each level is 4 spaces)
+            indent_level = len(indent) // 4
+
+            # Increment counter for this level
+            current_count = self.numbered_list_counters_by_indent.get(indent_level, 0) + 1
+            self.numbered_list_counters_by_indent[indent_level] = current_count
+
+            # Determine numbering style by level
+            marker = self._format_ordered_list_marker(current_count, indent_level)
+
+            # For nested numbered lists in Markdown, use 3 spaces per level to align
+            list_indent = "   " * indent_level if indent_level > 0 else ""
+            return [f"{list_indent}{marker} {text}"]
         return []
+
+    def _format_ordered_list_marker(self, count: int, indent_level: int) -> str:
+        """Return the ordered list marker (e.g., '1.', 'a.', 'i.') based on nesting level."""
+        # Level 0: 1., 2., 3.
+        # Level 1: a., b., c.
+        # Level 2: i., ii., iii.
+        # Level 3+: repeat pattern starting from numbers again
+        level_type = indent_level % 3
+        if level_type == 0:
+            return f"{count}."
+        if level_type == 1:
+            # a., b., c. ... wrap after z to aa., ab., etc.
+            return f"{self._to_alpha(count)}."
+        # Roman numerals
+        return f"{self._to_roman(count).lower()}."
+
+    def _to_alpha(self, num: int) -> str:
+        """Convert 1 -> a, 2 -> b, ... 27 -> aa, etc."""
+        result = []
+        n = num
+        while n > 0:
+            n -= 1
+            result.append(chr(ord('a') + (n % 26)))
+            n //= 26
+        return ''.join(reversed(result))
+
+    def _to_roman(self, num: int) -> str:
+        """Convert integer to Roman numerals."""
+        vals = [1000, 900, 500, 400, 100, 90, 50, 40, 10, 9, 5, 4, 1]
+        syms = [
+            'M', 'CM', 'D', 'CD', 'C', 'XC', 'L', 'XL', 'X', 'IX', 'V', 'IV', 'I'
+        ]
+        res = []
+        n = num
+        for v, s in zip(vals, syms):
+            while n >= v:
+                res.append(s)
+                n -= v
+        return ''.join(res)
     
     def _convert_todo(self, block: Dict[str, Any], indent: str) -> List[str]:
         """Convert a to-do list item."""
@@ -308,33 +347,99 @@ class NotionPayloadToMarkdownConverter:
         if not rows:
             return []
             
-        lines = []
+        lines: List[str] = []
         has_header = table_data.get('has_column_header', False)
-        
-        for i, row in enumerate(rows):
-            if row.get('type') == 'table_row':
-                cells = row.get('table_row', {}).get('cells', [])
-                # Convert each cell's rich text
-                cell_texts = []
-                for cell in cells:
-                    if cell:
-                        cell_text = self._convert_rich_text(cell)
-                        cell_texts.append(cell_text)
+
+        # Gather raw cell texts for width calculation
+        row_text_matrix: List[List[str]] = []
+        for row in rows:
+            if row.get('type') != 'table_row':
+                continue
+            cells = row.get('table_row', {}).get('cells', [])
+            cell_texts: List[str] = []
+            for cell in cells:
+                if cell:
+                    cell_text = self._convert_rich_text(cell)
+                    cell_texts.append(cell_text)
+                else:
+                    cell_texts.append("")
+            row_text_matrix.append(cell_texts)
+
+        if not row_text_matrix:
+            return []
+
+        # Compute column widths aiming to match reference formatting
+        num_cols = max(len(r) for r in row_text_matrix)
+        header_texts = row_text_matrix[0] if row_text_matrix else []
+
+        # Dash counts for separator
+        left_dash_count = 0
+        center_dash_counts: List[int] = [0] * num_cols
+        # Widths for content rendering
+        col_widths: List[int] = [0] * num_cols
+
+        if has_header:
+            # First column: separator width equals (max content length + 2)
+            left_max_content = 0
+            for r in row_text_matrix:
+                if r:
+                    left_max_content = max(left_max_content, len(r[0]) if len(r) > 0 else 0)
+            header_len_0 = len(header_texts[0]) if header_texts else 0
+            left_max = max(left_max_content, header_len_0)
+            left_dash_count = left_max + 2
+            # Header cell width matches separator dash count
+            col_widths[0] = left_dash_count
+
+            # Other columns: width = header length + 2; dash counts accordingly
+            for c_idx in range(1, num_cols):
+                header_len = len(header_texts[c_idx]) if c_idx < len(header_texts) else 0
+                col_widths[c_idx] = header_len
+                center_dash_counts[c_idx] = max(3, header_len - 2)
+        else:
+            # Fallback: width from content lengths
+            for r in row_text_matrix:
+                for c_idx, cell in enumerate(r):
+                    col_widths[c_idx] = max(col_widths[c_idx], len(cell))
+
+        # Build header and optional alignment separator
+        for i, cell_texts in enumerate(row_text_matrix):
+            # Pad cell_texts to num_cols
+            if len(cell_texts) < num_cols:
+                cell_texts = cell_texts + [""] * (num_cols - len(cell_texts))
+
+            # Format row with padding: first column left-aligned, others centered
+            formatted_cells: List[str] = []
+            for c_idx, text in enumerate(cell_texts):
+                width = col_widths[c_idx] if c_idx < len(col_widths) else len(text)
+                if c_idx == 0:
+                    # left align: text padded to width
+                    if width > len(text):
+                        formatted = f"{text}{' ' * (width - len(text))}"
                     else:
-                        cell_texts.append("")
-                
-                # Create the table row
-                row_text = f"{indent}| " + " | ".join(cell_texts) + " |"
-                lines.append(row_text)
-                
-                # Add header separator after first row if it's a header
-                if i == 0 and has_header:
-                    separator_cells = ["-" * max(8, len(cell) + 2) for cell in cell_texts]
-                    # Add alignment indicators
-                    separator_cells = [f":{sep}:" for sep in separator_cells]
-                    separator = f"{indent}| " + " | ".join(separator_cells) + " |"
-                    lines.append(separator)
-        
+                        formatted = text
+                else:
+                    # center align: distribute spaces on both sides
+                    total_pad = max(0, width - len(text))
+                    left_pad = total_pad // 2
+                    right_pad = total_pad - left_pad
+                    formatted = f"{' ' * left_pad}{text}{' ' * right_pad}"
+                formatted_cells.append(formatted)
+
+            row_text = f"{indent}| " + " | ".join(formatted_cells) + " |"
+            lines.append(row_text)
+
+            if i == 0 and has_header:
+                # Build alignment separator using computed dash counts
+                sep_cells: List[str] = []
+                for c_idx in range(num_cols):
+                    if c_idx == 0:
+                        sep_cells.append("-" * max(1, left_dash_count))
+                    else:
+                        dashes = max(1, center_dash_counts[c_idx])
+                        sep_cells.append(f":{'-' * dashes}:")
+                separator = f"{indent}| " + " | ".join(sep_cells) + " |"
+                lines.append(separator)
+
         return lines
     
     def _convert_toggle(self, block: Dict[str, Any], indent: str) -> List[str]:
