@@ -1,36 +1,41 @@
 # Notion Markdown Converter
 
-A powerful bidirectional converter between Notion API JSON format and Markdown. Perfect for importing/exporting Notion content, backups, and integrations.
+A powerful bidirectional converter between Notion pages and Markdown with comprehensive support for Notion-specific features like toggles, callouts, mentions, and columns.
 
 ## Features
 
-- 🔄 **Bidirectional Conversion**: Convert from Notion JSON to Markdown and back
-- 📝 **Full Markdown Support**: Handles all standard Markdown elements
-- 🎨 **Rich Text Formatting**: Bold, italic, strikethrough, code, links, and more
-- 📊 **Complex Structures**: Tables, nested lists, code blocks with syntax highlighting
-- ✅ **Well Tested**: Comprehensive test suite with 29+ tests
-- 🚀 **Easy to Use**: Simple API for both programmatic and command-line usage
+### 🔄 Three Core Conversions
+- **API → Payload**: Clean raw Notion API responses for creation
+- **Payload ↔ Markdown**: Bidirectional conversion with extended syntax
+- **Full Round-trip**: API → Payload → Markdown → Payload → API
 
-## Supported Elements
+### 📝 Extended Markdown Syntax
+Support for Notion-specific elements through extended markdown:
 
-### Block Types
-- **Headings** (H1, H2, H3)
-- **Paragraphs**
-- **Lists** (Bulleted, Numbered, Todo/Checkboxes)
-- **Nested Lists** (with proper indentation)
-- **Code Blocks** (with language specification)
-- **Quotes/Blockquotes**
-- **Tables** (with headers and alignment)
-- **Horizontal Rules/Dividers**
+```markdown
+# Standard Markdown
+**bold** *italic* `code` [links](url)
 
-### Text Formatting
-- **Bold** (`**text**`)
-- **Italic** (`*text*`)
-- **Bold+Italic** (`***text***`)
-- **Strikethrough** (`~~text~~`)
-- **Inline Code** (`` `code` ``)
-- **Underline** (`<u>text</u>`)
-- **Links** (`[text](url)`)
+# Notion Extensions
+- [>] Toggle blocks
+### [>] Toggle headers  
+<aside>💡 Callout with emoji</aside>
+<notion-user id="123">@username</notion-user>
+<notion-page id="456"></notion-page>
+<notion-date>August 10, 2025</notion-date>
+$E = mc^2$ (equations)
+
+<notion-columns>
+<notion-column>Left column</notion-column>
+<notion-column>Right column</notion-column>
+</notion-columns>
+```
+
+### 🎯 Comprehensive Block Support
+- **Text**: Paragraphs, headings (H1-H3), rich formatting
+- **Lists**: Bulleted, numbered, todo lists with nesting
+- **Blocks**: Quotes, code blocks, dividers, tables
+- **Notion-specific**: Toggles, callouts, mentions, columns, equations
 
 ## Installation
 
@@ -39,9 +44,9 @@ A powerful bidirectional converter between Notion API JSON format and Markdown. 
 git clone https://github.com/yourusername/notion_md_converter.git
 cd notion_md_converter
 
-# Create and activate a virtual environment
+# Create and activate virtual environment
 python -m venv .venv
-source .venv/Scripts/activate  # On Windows: .venv\Scripts\activate
+source .venv/Scripts/activate  # Windows: .venv\Scripts\activate
 
 # Install dependencies
 pip install -r requirements.txt
@@ -49,143 +54,361 @@ pip install -r requirements.txt
 
 ## Quick Start
 
-### Convert Notion JSON to Markdown
-
-```python
-from notion_markdown_converter import json_to_markdown_file
-
-# Convert a Notion JSON export to Markdown
-json_to_markdown_file('notion_export.json', 'output.md')
-```
-
-### Convert Markdown to Notion JSON
-
-```python
-from notion_markdown_converter import markdown_to_json_file
-
-# Convert a Markdown file to Notion JSON format
-markdown_to_json_file('document.md', 'notion_import.json')
-```
-
-### Programmatic Usage
+### Basic Usage
 
 ```python
 from notion_markdown_converter import (
-    NotionToMarkdownConverter,
-    MarkdownToNotionConverter
+    api_to_payload,
+    payload_to_markdown,
+    markdown_to_payload
 )
 
-# JSON to Markdown
-json_converter = NotionToMarkdownConverter()
-markdown_text = json_converter.convert_page(notion_json_data)
+# Clean API response
+clean_payload = api_to_payload(raw_api_data)
 
-# Markdown to JSON
-md_converter = MarkdownToNotionConverter()
-notion_json = md_converter.convert_markdown(markdown_text)
+# Convert to Markdown
+markdown_content = payload_to_markdown(clean_payload)
+
+# Convert back to Payload
+new_payload = markdown_to_payload(markdown_content)
+```
+
+### With Notion API Integration
+
+```python
+from notion_markdown_converter import (
+    fetch_page_as_payload,
+    create_page_from_markdown,
+    create_notion_client
+)
+
+# Setup client
+client = create_notion_client(token="your_token")
+
+# Fetch page as clean payload
+payload = fetch_page_as_payload("page_id", client)
+
+# Convert to markdown
+markdown = payload_to_markdown(payload)
+
+# Create new page from markdown
+new_page = create_page_from_markdown(
+    markdown, 
+    parent_id="parent_page_id",
+    client=client
+)
+```
+
+## Extended Syntax Guide
+
+### Toggle Blocks
+```markdown
+- [>] This is a toggle
+    Content inside the toggle
+
+### [>] Toggle Header
+    Content under toggle header
+```
+
+### Callouts
+```markdown
+<aside>
+💡 This is a callout with a light bulb icon
+Additional callout content here
+</aside>
+```
+
+### Mentions
+```markdown
+User: <notion-user id="user-uuid">@username</notion-user>
+Page: <notion-page id="page-uuid"></notion-page>
+Date: <notion-date>August 10, 2025</notion-date>
+```
+
+### Math Equations
+```markdown
+Inline math: $E = mc^2$
+```
+
+### Multi-column Layout
+```markdown
+<notion-columns>
+<notion-column>
+Content for left column.
+Can contain multiple paragraphs.
+</notion-column>
+<notion-column>
+Content for right column.
+Also supports **rich formatting**.
+</notion-column>
+</notion-columns>
+```
+
+## API Reference
+
+### Core Conversion Functions
+
+#### `api_to_payload(api_data: Dict) -> Dict`
+Cleans raw Notion API response by removing IDs, timestamps, and metadata.
+
+```python
+clean_data = api_to_payload(raw_api_response)
+```
+
+#### `payload_to_markdown(payload: Dict) -> str`
+Converts clean Notion payload to Markdown with extended syntax.
+
+```python
+markdown = payload_to_markdown(notion_payload)
+```
+
+#### `markdown_to_payload(markdown: str) -> Dict`
+Converts Markdown (with extended syntax) back to Notion payload format.
+
+```python
+payload = markdown_to_payload(markdown_content)
+```
+
+### API Integration Functions
+
+#### `create_notion_client(token: str) -> Client`
+Creates authenticated Notion client.
+
+#### `fetch_page_as_payload(page_id: str, client: Client) -> Dict`
+Fetches a complete page as clean payload data.
+
+#### `create_page_from_payload(payload: Dict, client: Client) -> Dict`
+Creates a new Notion page from payload data.
+
+#### `create_page_from_markdown(markdown: str, parent_id: str, client: Client) -> Dict`
+Creates a new Notion page directly from Markdown.
+
+### File Conversion Functions
+
+```python
+from notion_markdown_converter import (
+    payload_to_markdown_file,
+    markdown_to_payload_file
+)
+
+# File conversions
+payload_to_markdown_file('page.json', 'page.md')
+markdown_to_payload_file('page.md', 'page.json')
 ```
 
 ## Setup for Notion API Integration
 
-1.  **Create a Notion Integration:**
-    *   Go to [https://www.notion.so/my-integrations](https://www.notion.so/my-integrations).
-    *   Click "+ New integration".
-    *   Give it a name, associate it with a workspace, and submit.
-    *   On the next page, under "Capabilities", make sure "Read content", "Update content", and "Insert content" are all enabled.
-    *   Copy the "Internal Integration Token".
+1. **Create a Notion Integration:**
+   - Go to [https://www.notion.so/my-integrations](https://www.notion.so/my-integrations)
+   - Click "+ New integration"
+   - Give it a name, associate it with a workspace, and submit
+   - Copy the "Internal Integration Token"
 
-2.  **Set up environment variables:**
-    *   Create a `.env` file in the project root by copying the `.env.example` file.
-    *   Add your Notion token to the `.env` file:
-        ```
-        NOTION_TOKEN="your_internal_integration_token"
-        ```
+2. **Set up environment variables:**
+   ```bash
+   # Create .env file
+   echo 'NOTION_TOKEN="your_internal_integration_token"' > .env
+   ```
 
-3.  **Configure Page URLs:**
-    *   Create a `config.json` file by copying the `config.json.example` file.
-    *   Inside `config.json`, replace the placeholder URLs with the full URLs of your source and parent pages.
-        ```json
-        {
-            "source_page_url": "https://www.notion.so/your-workspace/Your-Source-Page-Title-24a865260e43813180f0e007bc6e0ff3",
-            "parent_page_url": "https://www.notion.so/your-workspace/Your-Parent-Page-Title-some-other-id"
-        }
-        ```
-
-4.  **Share the relevant pages with your integration:**
-    *   You must share both the **source page** and the **parent page** with your integration.
-    *   For each page, click the "..." menu -> "Add connections" -> and select your integration.
+3. **Share pages with your integration:**
+   - For each page you want to access, click "..." menu → "Add connections" → select your integration
 
 ## Examples
 
-### Basic Usage Example
+### Basic Page Conversion
+```python
+import json
+from notion_markdown_converter import payload_to_markdown
 
-Run the comprehensive example to see all features:
+# Load a Notion page payload
+with open('my_page.json', 'r') as f:
+    payload = json.load(f)
+
+# Convert to Markdown
+markdown = payload_to_markdown(payload)
+print(markdown)
+```
+
+### Round-trip Conversion
+```python
+from notion_markdown_converter import (
+    payload_to_markdown,
+    markdown_to_payload
+)
+
+# Start with payload
+original_payload = {...}
+
+# Convert to Markdown and back
+markdown = payload_to_markdown(original_payload)
+reconstructed_payload = markdown_to_payload(markdown)
+
+# Should be equivalent to original
+```
+
+### Working with Notion API
+```python
+import os
+from notion_markdown_converter import (
+    create_notion_client,
+    fetch_page_as_payload,
+    payload_to_markdown
+)
+
+# Setup
+client = create_notion_client(os.getenv('NOTION_TOKEN'))
+
+# Export page to Markdown
+payload = fetch_page_as_payload('your-page-id', client)
+markdown = payload_to_markdown(payload)
+
+# Save to file
+with open('exported_page.md', 'w', encoding='utf-8') as f:
+    f.write(markdown)
+```
+
+### Using Example Scripts
 
 ```bash
-python examples/basic_usage.py
+# Fetch a page from Notion
+python scripts/fetch_page.py
+
+# Convert and create a new page
+python scripts/convert_and_create_page.py
 ```
 
-This demonstrates:
-- JSON to Markdown conversion
-- Markdown to JSON conversion
-- Round-trip conversion with content preservation
+## Architecture
 
-### Notion API Integration
+### Data Types
+- **NotionApiResponse**: Raw API data with IDs, timestamps, metadata
+- **NotionPayload**: Clean page data suitable for creation/conversion  
+- **MarkdownContent**: Text with extended syntax for Notion elements
 
-The library includes helper scripts for working with the Notion API:
+### Module Structure
+```
+notion_markdown_converter/
+├── converters/
+│   ├── api_to_payload.py      # API response cleaning
+│   ├── payload_to_markdown.py # Payload → Markdown  
+│   ├── markdown_to_payload.py # Markdown → Payload
+│   └── __init__.py            # Core exports
+├── api.py                     # Notion API integration
+├── plugins/                   # Future extensibility
+└── __init__.py               # Main exports
+```
 
-#### Fetch a Notion Page
+## Supported Notion Blocks
 
+### Text Blocks
+- ✅ Paragraph
+- ✅ Heading 1, 2, 3 (including toggle headers)
+- ✅ Rich text formatting (bold, italic, strikethrough, code, underline)
+- ✅ Links
+
+### List Blocks  
+- ✅ Bulleted lists (with nesting)
+- ✅ Numbered lists (with nesting)
+- ✅ Todo lists (checked/unchecked)
+
+### Media & Layout
+- ✅ Code blocks (with syntax highlighting)
+- ✅ Tables (with headers)
+- ✅ Quotes
+- ✅ Dividers
+- ✅ Multi-column layouts
+
+### Notion-Specific
+- ✅ Toggle blocks
+- ✅ Toggle headers
+- ✅ Callouts (with emoji icons)
+- ✅ User mentions
+- ✅ Page mentions  
+- ✅ Date mentions
+- ✅ Equations (LaTeX)
+
+## Development
+
+### Running Tests
 ```bash
-python examples/fetch_page.py
-```
+# Install development dependencies
+pip install pytest
 
-This will fetch a page from Notion and save it as JSON.
-
-#### Create a New Notion Page from JSON
-
-```bash
-python examples/convert_and_create_page.py
-```
-
-This will create a new Notion page from a JSON file.
-
-## Project Structure
-
-```
-notion_md_converter/
-├── notion_markdown_converter/     # Main library package
-│   ├── __init__.py               # Package initialization
-│   ├── json_to_markdown.py       # Notion JSON to Markdown converter
-│   ├── markdown_to_json.py       # Markdown to Notion JSON converter
-│   └── utils.py                  # Utility functions
-├── examples/                      # Example scripts
-│   ├── basic_usage.py            # Basic conversion examples
-│   ├── fetch_page.py             # Fetch page from Notion API
-│   └── convert_and_create_page.py # Create Notion page from JSON
-├── tests/                         # Test suite
-│   └── test_markdown_to_json.py  # Comprehensive tests
-├── references/                    # Reference files for testing
-│   ├── reference_1.json          # Sample Notion JSON
-│   └── reference_1.md            # Sample Markdown
-└── requirements.txt              # Python dependencies
-```
-
-## Testing
-
-Run the test suite to verify everything is working:
-
-```bash
 # Run all tests
-pytest -v
+pytest tests/ -v
 
-# Run specific test file
+# Run specific test suite
+pytest tests/test_converters.py -v
+
+# Run legacy tests
 pytest tests/test_markdown_to_json.py -v
 ```
 
+### Project Structure
+```
+notion_md_converter/
+├── notion_markdown_converter/    # Main library
+│   ├── converters/              # Core conversion modules
+│   ├── api.py                   # Notion API wrapper
+│   └── __init__.py             # Main exports
+├── tests/                       # Test suites
+│   ├── test_converters.py      # New comprehensive tests
+│   └── test_markdown_to_json.py # Legacy tests
+├── references/                  # Reference files for testing
+│   ├── *_api.json              # Raw API responses
+│   ├── *_payload.json          # Clean payloads
+│   └── *.md                    # Markdown with extended syntax
+├── scripts/                     # Utility scripts
+├── examples/                    # Usage examples
+└── README.md                   # This file
+```
+
+## Backward Compatibility
+
+The library maintains backward compatibility with v1.0 APIs:
+
+```python
+# Legacy imports still work
+from notion_markdown_converter import (
+    NotionToMarkdownConverter,
+    MarkdownToNotionConverter,
+    json_to_markdown,
+    markdown_to_json
+)
+```
+
+## Limitations & Known Issues
+
+- Character encoding edge cases may need refinement (smart quotes)
+- Round-trip conversion is ~85% perfect (improvements ongoing)
+- Some advanced Notion blocks not yet supported (embeds, databases)
+- Empty line spacing may vary slightly between conversions
+
 ## Contributing
 
-Contributions are welcome! Please feel free to submit a Pull Request.
+1. Fork the repository
+2. Create a feature branch
+3. Add tests for new functionality
+4. Ensure all tests pass: `pytest tests/ -v`
+5. Submit a pull request
 
 ## License
 
-MIT License - feel free to use this in your own projects!
+MIT License - see LICENSE file for details.
+
+## Changelog
+
+### v2.0.0 (2025-08-24) - Major Refactoring
+- 🚀 **Breaking**: New three-function API architecture
+- ✨ **New**: Extended syntax support for Notion-specific elements
+- 🔧 **New**: Integrated Notion API wrapper
+- 📊 **New**: Auto-discovering comprehensive test suite
+- 🏗️ **New**: Modular converter architecture for extensibility
+- 🎯 **New**: Support for toggles, callouts, mentions, columns, equations
+- 📝 **New**: Clean separation of API responses, payloads, and markdown
+
+### v1.0.0 (2025-08-10) - Initial Release
+- 🎉 Initial bidirectional conversion between Notion JSON and Markdown
+- 📝 Support for all standard Markdown elements
+- ✅ Comprehensive test coverage (29+ tests)
+- 📖 Complete documentation and examples
+- 🔄 Round-trip conversion support
