@@ -6,9 +6,9 @@ This page demonstrates various Markdown features for testing the Notion to Markd
 
 Here is a paragraph with various text styles: **bold text**, *italic text*, ~~strikethrough text~~, and `inline code`. You can also combine them, like ***this***.
 
-This is a [link to the Notion website](https://www.notion.so).
+This is a [link to the Notion website](https://www.notion.so/).
 
-> This is a blockquote. It's useful for highlighting a quote or a note.
+> This is a blockquote. It’s useful for highlighting a quote or a note.
 
 A horizontal rule separates content sections:
 ---
@@ -25,16 +25,16 @@ def hello_world():
 ### Unordered List
 - Item 1
 - Item 2
-  - Sub-item 2.1
-  - Sub-item 2.2
+    - Sub-item 2.1
+    - Sub-item 2.2
 - Item 3
 
 ### Ordered List
 1. First item
 2. Second item
-   3. Sub-item 2.1
-   4. Sub-item 2.2
-5. Third item
+   a. Sub-item 2.1
+   b. Sub-item 2.2
+3. Third item
 
 ### Checklist
 - [x] A completed task

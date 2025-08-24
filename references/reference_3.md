@@ -1,5 +1,3 @@
-# My New Page from API
-
 A simple paragraph. With some text. Lorem ipsum lorem ipsum bla bla bla. After that, we will test putting empty space. See if empty space can survive a back-and-forth.
 
 
