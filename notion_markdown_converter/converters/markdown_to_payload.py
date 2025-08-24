@@ -33,22 +33,8 @@ class NotionMarkdownToPayloadConverter:
             "children": []
         }
         
-        # Check if first line is a title (# Title)
-        if self.lines and self.lines[0].startswith('# '):
-            title_text = self.lines[0][2:].strip()
-            page_data["properties"]["title"] = {
-                "title": [
-                    {
-                        "text": {
-                            "content": title_text
-                        }
-                    }
-                ]
-            }
-            self.current_line_index = 1
-            # Skip empty line after title if present
-            if self.current_line_index < len(self.lines) and not self.lines[self.current_line_index].strip():
-                self.current_line_index += 1
+        # Do not treat leading H1 as page title; keep it as a heading block for parity with references
+        self.current_line_index = 0
         
         # Parse the rest of the content
         blocks = self._parse_blocks()
@@ -84,7 +70,8 @@ class NotionMarkdownToPayloadConverter:
     def _parse_block(self, line: str, indent: int) -> Optional[Dict[str, Any]]:
         """Parse a single line into a Notion block."""
         if not line:
-            return None
+            # Represent a blank line as an empty paragraph block
+            return self._create_paragraph_block("")
         
         # Check for different block types
         # Headings (including toggle headings)
