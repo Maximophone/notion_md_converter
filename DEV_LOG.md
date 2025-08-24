@@ -83,3 +83,7 @@ Ok, this is done. I have added reference_4_api.json.
 The next step will be to modify the function that takes the API and converts it into a payload so that the properties are preserved and use that to generate the associated payload. In the meantime, we need to make sure that nothing else breaks by doing so specifically the API. And we need to update the other references so that the properties are preserved for them as well. 
 
 Next we will have to define the associated reference markdown. 
+
+*Same day, but after the latest AI log*
+
+Okay, we have implemented the front matter to properties conversion; it's all working, but we are still missing a few properties. So the next step will be to handle relations roll-ups - basically all the remaining properties in Notion. 
