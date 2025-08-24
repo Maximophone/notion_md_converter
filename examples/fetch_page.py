@@ -1,6 +1,7 @@
 import os
 import sys
 import json
+import argparse
 from dotenv import load_dotenv
 from notion_client import Client, APIResponseError
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -33,18 +34,17 @@ def get_all_blocks(client, page_id):
 
 def main():
     """
-    Main function to fetch Notion page content and save it to a JSON file.
+    Fetch a Notion page's content and save it to a JSON file.
     """
-    try:
-        with open("config.json", "r") as f:
-            config = json.load(f)
-        raw_page_id = config.get("source_page_url")
-    except FileNotFoundError:
-        print("Error: config.json not found. Please create it from config.json.example.")
-        return
-    except json.JSONDecodeError:
-        print("Error: Could not decode JSON from config.json.")
-        return
+    parser = argparse.ArgumentParser(
+        description="Fetch a Notion page's blocks and write them to a JSON file."
+    )
+    parser.add_argument(
+        "page_url",
+        help="Notion page URL or 32-character page ID",
+    )
+    args = parser.parse_args()
+    raw_page_id = args.page_url
 
     notion_token = os.getenv("NOTION_TOKEN")
 
@@ -52,8 +52,8 @@ def main():
         print("Error: Please set NOTION_TOKEN in your .env file.")
         return
 
-    if not raw_page_id or "YOUR_SOURCE_PAGE_URL_HERE" in raw_page_id:
-        print("Error: Please set 'source_page_url' in your config.json file.")
+    if not raw_page_id:
+        print("Error: Page URL or ID is required.")
         return
 
     notion_page_id = extract_page_id(raw_page_id)
@@ -86,7 +86,7 @@ def main():
         print("Please check the following:")
         print("1. Your NOTION_TOKEN is correct.")
         print("2. The page has been shared with your integration.")
-        print("3. The 'source_page_url' in config.json is correct.")
+        print("3. The page URL or ID you provided is correct and accessible.")
 
 if __name__ == "__main__":
     main()
