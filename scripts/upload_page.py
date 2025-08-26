@@ -104,24 +104,13 @@ Examples:
 
     try:
         if inferred_type == "markdown":
-            # For database parent, build payload ourselves to set database_id
             content = input_path.read_text(encoding='utf-8')
-            if args.parent_type == "database":
-                payload = markdown_to_payload(content)
-                payload["parent"] = {"database_id": parent_id}
-                if args.title:
-                    payload["properties"] = {
-                        "title": {
-                            "title": [{"text": {"content": args.title}}]
-                        }
-                    }
-                response = create_page_from_payload(payload)
-            else:
-                response = create_page_from_markdown(
-                    markdown_content=content,
-                    parent_id=parent_id,
-                    title=args.title
-                )
+            response = create_page_from_markdown(
+                markdown_content=content,
+                parent_id=parent_id,
+                title=args.title,
+                parent_type=("database" if args.parent_type == "database" else "page"),
+            )
 
         elif inferred_type == "payload":
             import json

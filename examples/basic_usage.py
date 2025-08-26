@@ -27,8 +27,10 @@ from notion_markdown_converter import (
     
     # Legacy compatibility
     NotionToMarkdownConverter,
-    MarkdownToNotionConverter
+    MarkdownToNotionConverter,
+    markdown_to_json_file,
 )
+from notion_markdown_converter.api import create_page_from_markdown
 
 
 def demo_api_to_payload():
@@ -220,6 +222,46 @@ print("Code block")
             print(f"  [FAIL] {element[:20]}... lost")
 
 
+def demo_create_page_from_markdown_parent_types():
+    """Demonstrate creating a page from Markdown under a page vs a database."""
+    print("\n" + "=" * 60)
+    print("Create Page From Markdown: Parent Types")
+    print("=" * 60)
+
+    sample_markdown = """# Title from content
+
+This page will be created either under a page or a database.
+"""
+
+    # IDs here are placeholders; replace with your actual IDs to run.
+    example_parent_page_id = "your-parent-page-id"
+    example_parent_database_id = "your-parent-database-id"
+
+    # Under a page (default behavior / onPage)
+    try:
+        _ = create_page_from_markdown(
+            markdown_content=sample_markdown,
+            parent_id=example_parent_page_id,
+            title="Created under a page",
+            parent_type="onPage",
+        )
+        print("Invoked creation under page (onPage)")
+    except Exception as e:
+        print(f"Skipping live API call example (page): {e}")
+
+    # Under a database
+    try:
+        _ = create_page_from_markdown(
+            markdown_content=sample_markdown,
+            parent_id=example_parent_database_id,
+            title="Created in a database",
+            parent_type="inDatabase",
+        )
+        print("Invoked creation in database (inDatabase)")
+    except Exception as e:
+        print(f"Skipping live API call example (database): {e}")
+
+
 def main():
     """Run all demonstrations."""
     import os
@@ -232,9 +274,11 @@ def main():
     print("=" * 60)
     
     # Run demonstrations
-    demo_json_to_markdown()
-    demo_markdown_to_json()
+    demo_api_to_payload()
+    demo_payload_to_markdown()
+    demo_markdown_to_payload()
     demo_round_trip()
+    demo_create_page_from_markdown_parent_types()
     
     print("\n" + "=" * 60)
     print("Demonstration complete!")

@@ -95,7 +95,16 @@ markdown = payload_to_markdown(payload)
 new_page = create_page_from_markdown(
     markdown, 
     parent_id="parent_page_id",
-    client=client
+    client=client,
+    parent_type="onPage",
+)
+
+# Or create inside a database
+new_db_page = create_page_from_markdown(
+    markdown,
+    parent_id="parent_database_id",
+    client=client,
+    parent_type="inDatabase",
 )
 ```
 
@@ -211,8 +220,14 @@ Fetches a complete page as clean payload data.
 #### `create_page_from_payload(payload: Dict, client: Client) -> Dict`
 Creates a new Notion page from payload data.
 
-#### `create_page_from_markdown(markdown: str, parent_id: str, client: Client) -> Dict`
+#### `create_page_from_markdown(markdown: str, parent_id: str, title: Optional[str] = None, parent_type: str = "onPage", client: Client = None) -> Dict`
 Creates a new Notion page directly from Markdown.
+
+Parameters:
+- `markdown`: Markdown content
+- `parent_id`: The ID of the parent page or database
+- `title` (optional): Overrides the page title
+- `parent_type` (optional): Where to create the page. Accepts `"onPage"`/`"page"` or `"inDatabase"`/`"database"`. Defaults to `"onPage"`.
 
 ### File Conversion Functions
 
@@ -312,6 +327,9 @@ notion-fetch "https://www.notion.so/Page-Title-0123456789abcdef0123456789abcdef"
 
 # Upload from Markdown under a parent page
 notion-upload path/to/file.md "https://www.notion.so/Parent-Page-URL" --type markdown --title "Optional Title"
+
+# Upload from Markdown into a parent database (new parent_type support)
+notion-upload path/to/file.md "https://www.notion.so/Parent-Database-URL" --type markdown --parent-type database --title "Optional Title"
 
 # Upload from payload JSON under a parent database
 notion-upload path/to/payload.json "https://www.notion.so/Parent-Database-URL" --type payload --parent-type database

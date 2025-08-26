@@ -278,7 +278,8 @@ def fetch_page_as_markdown(page_id: str, client: Optional[Client] = None) -> str
     return payload_to_markdown(payload)
 
 def create_page_from_markdown(markdown_content: str, parent_id: str, 
-                             title: Optional[str] = None, 
+                             title: Optional[str] = None,
+                             parent_type: str = "onPage",
                              client: Optional[Client] = None) -> Dict[str, Any]:
     """
     Create a Notion page from Markdown content.
@@ -287,6 +288,8 @@ def create_page_from_markdown(markdown_content: str, parent_id: str,
         markdown_content: The Markdown content
         parent_id: Parent page or database ID
         title: Optional page title. If None, extracts from first # heading
+        parent_type: Where to create the page. Accepts "onPage"/"page" or
+            "inDatabase"/"database". Defaults to "onPage".
         client: Optional Notion client
         
     Returns:
@@ -296,8 +299,19 @@ def create_page_from_markdown(markdown_content: str, parent_id: str,
     
     payload = markdown_to_payload(markdown_content)
     
-    # Set parent
-    payload["parent"] = {"page_id": parent_id}
+    # Normalize and set parent
+    normalized_parent_type = None
+    if parent_type in ("onPage", "page"):
+        normalized_parent_type = "page"
+    elif parent_type in ("inDatabase", "database"):
+        normalized_parent_type = "database"
+    else:
+        raise ValueError("parent_type must be one of 'onPage', 'page', 'inDatabase', or 'database'")
+
+    if normalized_parent_type == "database":
+        payload["parent"] = {"database_id": parent_id}
+    else:
+        payload["parent"] = {"page_id": parent_id}
     
     # Set title if provided
     if title:

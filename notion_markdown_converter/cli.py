@@ -12,7 +12,6 @@ from .api import (
 )
 from .converters import (
     payload_to_markdown,
-    markdown_to_payload,
     api_to_payload,
 )
 
@@ -83,6 +82,7 @@ def upload_page_main() -> None:
             "Examples:\n"
             "  notion-upload document.md \"https://notion.so/parent-page-url\"\n"
             "  notion-upload page_payload.json \"https://notion.so/parent-db-url\" --type payload --parent-type database\n"
+            "  notion-upload document.md \"https://notion.so/parent-db-url\" --type markdown --parent-type database --title \"My Title\"\n"
             "  notion-upload page_api.json \"https://notion.so/parent-page-url\" --type api --title \"My Title\"\n"
         ),
     )
@@ -132,18 +132,12 @@ def upload_page_main() -> None:
     try:
         if inferred_type == "markdown":
             content = input_path.read_text(encoding="utf-8")
-            if args.parent_type == "database":
-                payload = markdown_to_payload(content)
-                payload["parent"] = {"database_id": parent_id}
-                if args.title:
-                    payload["properties"] = {
-                        "title": {"title": [{"text": {"content": args.title}}]}
-                    }
-                response = create_page_from_payload(payload)
-            else:
-                response = create_page_from_markdown(
-                    markdown_content=content, parent_id=parent_id, title=args.title
-                )
+            response = create_page_from_markdown(
+                markdown_content=content,
+                parent_id=parent_id,
+                title=args.title,
+                parent_type=("database" if args.parent_type == "database" else "page"),
+            )
         elif inferred_type == "payload":
             payload_data = json.loads(input_path.read_text(encoding="utf-8"))
             if args.parent_type == "database":
