@@ -36,6 +36,7 @@ from .api import (
     create_notion_client,
     fetch_page_blocks,
     fetch_page_full,
+    fetch_page_as_markdown,
     fetch_page_as_payload,
     create_page_from_payload,
     create_page_from_markdown
