@@ -48,8 +48,8 @@ cd notion_md_converter
 python -m venv .venv
 source .venv/Scripts/activate  # Windows: .venv\Scripts\activate
 
-# Install dependencies
-pip install -r requirements.txt
+# Install the package (installs CLI: notion-fetch, notion-upload)
+pip install -e .
 ```
 
 ## Quick Start
@@ -298,16 +298,33 @@ with open('exported_page.md', 'w', encoding='utf-8') as f:
     f.write(markdown)
 ```
 
-### Using Example Scripts
+### Command Line Interface (installed via pip)
 
 ```bash
-# Fetch a page from Notion
-python scripts/fetch_page.py
+# Fetch a page from Notion (output: payload JSON by default)
+notion-fetch "https://www.notion.so/Page-Title-0123456789abcdef0123456789abcdef" -f payload -o clean_page.json
 
-# Upload from markdown, payload JSON, or API JSON under a page or database
-python scripts/upload_page.py path/to/file.md "https://www.notion.so/Parent-Page-URL" --type markdown --title "Optional Title"
-python scripts/upload_page.py path/to/payload.json "https://www.notion.so/Parent-Database-URL" --type payload --parent-type database
-python scripts/upload_page.py path/to/api.json "https://www.notion.so/Parent-Page-URL" --type api --title "Optional Title"
+# Fetch as raw API JSON
+notion-fetch "https://www.notion.so/Page-Title-0123456789abcdef0123456789abcdef" -f api -o page_api.json
+
+# Fetch as Markdown
+notion-fetch "https://www.notion.so/Page-Title-0123456789abcdef0123456789abcdef" -f markdown -o page.md
+
+# Upload from Markdown under a parent page
+notion-upload path/to/file.md "https://www.notion.so/Parent-Page-URL" --type markdown --title "Optional Title"
+
+# Upload from payload JSON under a parent database
+notion-upload path/to/payload.json "https://www.notion.so/Parent-Database-URL" --type payload --parent-type database
+
+# Upload from raw API JSON (will be cleaned first) under a parent page
+notion-upload path/to/api.json "https://www.notion.so/Parent-Page-URL" --type api --title "Optional Title"
+```
+
+Legacy scripts remain available under `scripts/` and can be run with Python if you prefer not to install the package:
+
+```bash
+python scripts/fetch_page.py "https://www.notion.so/Page-Title-..." -f markdown -o page.md
+python scripts/upload_page.py path/to/file.md "https://www.notion.so/Parent-Page-URL" --type markdown
 ```
 
 ## Architecture

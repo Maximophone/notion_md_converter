@@ -11,7 +11,7 @@ from typing import Dict, List, Any, Optional
 from notion_client import Client, APIResponseError
 from dotenv import load_dotenv
 
-from .converters import api_to_payload
+from .converters import api_to_payload, payload_to_markdown
 
 load_dotenv()
 
@@ -263,6 +263,19 @@ def fetch_page_as_payload(page_id: str, client: Optional[Client] = None) -> Dict
     api_response = fetch_page_full(page_id, client)
     return api_to_payload(api_response)
 
+def fetch_page_as_markdown(page_id: str, client: Optional[Client] = None) -> str:
+    """
+    Fetch a Notion page and convert it to Markdown format.
+    
+    Args:
+        page_id: The Notion page ID
+        client: Optional Notion client
+        
+    Returns:
+        Markdown content of the page
+    """
+    payload = fetch_page_as_payload(page_id, client)
+    return payload_to_markdown(payload)
 
 def create_page_from_markdown(markdown_content: str, parent_id: str, 
                              title: Optional[str] = None, 
