@@ -315,10 +315,10 @@ def create_page_from_markdown(markdown_content: str, parent_id: str,
     
     # Set title if provided
     if title:
-        payload["properties"] = {
-            "title": {
+        properties = payload.get("properties", {})
+        properties["title"] = {
                 "title": [{"text": {"content": title}}]
             }
-        }
+        payload["properties"] = properties
     
     return create_page_from_payload(payload, client)
